@@ -62,7 +62,7 @@ namespace PinkBackrooms.EditorTools
 
             Shell(room, lights, audio, out var knockSource);
             var ambience = new List<AudioSource>();
-            ambience.Add(Audio(audio, "Room Drone", Vector3.up * 1.5f, "room_drone.ogg", 0.45f, true, false));
+            ambience.Add(Audio(audio, "Room Drone", Vector3.up * 1.5f, "room_drone.ogg", 0.14f, true, false)); // quiet: just pressure in the ears
 
             Bed(props, lights, ambience);
             Nightstands(props, lights, ambience);
@@ -364,11 +364,14 @@ namespace PinkBackrooms.EditorTools
             var pulse = spk.gameObject.AddComponent<FlickerLight>();
             pulse.lights = new[] { ledGlow }; pulse.bulbs = new[] { led.GetComponent<Renderer>() };
             pulse.bulbColor = new Color(0.4f, 0.6f, 1f) * 3f; pulse.mode = FlickerLight.Mode.Pulse; pulse.pulseSpeed = 0.5f;
-            ambience.Add(Audio(spk, "Affirmations (speaker)", new Vector3(0, 0.05f, 0), "affirmations_speaker.ogg", 0.5f, true, true, 6f));
+            var aff = Audio(spk, "Affirmations (speaker)", new Vector3(0, 0.05f, 0), "affirmations_speaker.ogg", 0.9f, true, true, 7f);
+            aff.minDistance = 1.5f;      // clearly audible across the bed, fades toward the door
+            aff.spatialBlend = 0.75f;    // still sounds like it's coming from the nightstand, but never drops out
+            ambience.Add(aff);
             Interact(spk, "listen to the speaker", true, 0.1f,
-                "the same playlist. it's been on repeat for days.",
+                "lucky girl affirmations. on repeat for days.",
                 "i don't believe any of it. i leave it on anyway.",
-                "maybe if i hear it enough times.");
+                "maybe if i hear it enough times it'll be true.");
             // phone charger cable trailing off the edge
             var cable = Mat("Cable", null, new Color(0.92f, 0.9f, 0.9f), Vector2.one);
             Beam("Charger Cable", right, new Vector3(0.12f, 0.565f, -0.12f), new Vector3(0.2f, 0.565f, -0.2f), 0.006f, 0.006f, cable);
@@ -581,79 +584,28 @@ namespace PinkBackrooms.EditorTools
 
         static void Wardrobe(Transform props)
         {
-            // An armoire stuffed full: both doors open, every hanger used, folded stacks and shoe boxes below.
+            // Closed. Whatever's in there stays in there; the clothes that escaped are piled in front.
             var g = Group("Wardrobe", props, new Vector3(1.55f, 0, -HZ + 0.3f));
             var white = Mat("Furniture White", "paint_white", Color.white, Vector2.one);
-            var inside = Mat("Wardrobe Inside", "paint_white", new Color(0.55f, 0.42f, 0.46f), Vector2.one);
-            var metal = Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f);
-            Box("Back", g, new Vector3(0, 1.0f, -0.28f), new Vector3(1.1f, 2.0f, 0.04f), inside, collider: true);
-            Box("Side L", g, new Vector3(-0.53f, 1.0f, 0), new Vector3(0.04f, 2.0f, 0.6f), white, collider: true);
-            Box("Side R", g, new Vector3(0.53f, 1.0f, 0), new Vector3(0.04f, 2.0f, 0.6f), white, collider: true);
-            Box("Top", g, new Vector3(0, 1.98f, 0), new Vector3(1.1f, 0.04f, 0.6f), white);
-            Box("Bottom", g, new Vector3(0, 0.06f, 0), new Vector3(1.1f, 0.12f, 0.6f), white, collider: true);
-            Box("Shelf", g, new Vector3(0, 0.5f, 0), new Vector3(1.02f, 0.025f, 0.54f), inside);
-            foreach (var (side, yaw) in new[] { (-1f, -110f), (1f, 115f) })
+            var line = Mat("Drawer Line", null, new Color(0.25f, 0.2f, 0.22f), Vector2.one);
+            var brass = Mat("Brass", null, new Color(0.55f, 0.45f, 0.3f), Vector2.one, null, 0.6f, metallic: 0.8f);
+            Box("Body", g, new Vector3(0, 1.0f, 0), new Vector3(1.1f, 2.0f, 0.6f), white, collider: true);
+            Box("Crown", g, new Vector3(0, 2.02f, 0.01f), new Vector3(1.16f, 0.06f, 0.64f), white);
+            Box("Base", g, new Vector3(0, 0.05f, 0.01f), new Vector3(1.14f, 0.1f, 0.62f), white);
+            // two doors, a seam down the middle, raised panels, knobs
+            Box("Door Seam", g, new Vector3(0, 1.08f, 0.301f), new Vector3(0.008f, 1.8f, 0.004f), line);
+            foreach (var x in new[] { -0.27f, 0.27f })
             {
-                var hinge = Group("Door Hinge", g, new Vector3(0.54f * side, 0, 0.3f));
-                hinge.localEulerAngles = new Vector3(0, yaw, 0);
-                Box("Door (open)", hinge, new Vector3(-0.27f * side, 1.02f, 0), new Vector3(0.53f, 1.9f, 0.03f), white, collider: true);
-                Box("Door Mirror Strip", hinge, new Vector3(-0.27f * side, 1.2f, side > 0 ? 0.017f : -0.017f), new Vector3(0.3f, 0.9f, 0.004f),
-                    Mat("Mirror Glass", null, new Color(0.16f, 0.12f, 0.14f), Vector2.one, Color.black, 0.95f, metallic: 0.9f, reflections: true));
+                Box("Panel", g, new Vector3(x, 1.45f, 0.305f), new Vector3(0.38f, 0.75f, 0.012f), white);
+                Box("Panel", g, new Vector3(x, 0.6f, 0.305f), new Vector3(0.38f, 0.65f, 0.012f), white);
+                Prim(PrimitiveType.Sphere, "Knob", g, new Vector3(x * 0.15f, 1.05f, 0.32f), Vector3.one * 0.035f, brass);
             }
-            Prim(PrimitiveType.Cylinder, "Rail", g, new Vector3(0, 1.78f, 0), new Vector3(0.02f, 0.52f, 0.02f), metal, new Vector3(0, 0, 90));
-
-            // a dim bulb inside so you can actually see what's in there
-            var bulb = Prim(PrimitiveType.Sphere, "Closet Bulb", g, new Vector3(0, 1.93f, 0.05f), Vector3.one * 0.05f,
-                Mat("Closet Bulb", null, Color.white, Vector2.one, new Color(1f, 0.75f, 0.8f) * 1.5f));
-            var cl = new GameObject("Closet Light").AddComponent<Light>();
-            cl.transform.SetParent(g, false); cl.transform.localPosition = new Vector3(0, 1.8f, 0.25f);
-            cl.type = LightType.Point; cl.color = new Color(1f, 0.7f, 0.78f); cl.intensity = 0.7f; cl.range = 1.6f;
-            var cfl = g.gameObject.AddComponent<FlickerLight>();
-            cfl.lights = new[] { cl }; cfl.bulbs = new[] { bulb.GetComponent<Renderer>() };
-            cfl.bulbColor = new Color(1f, 0.75f, 0.8f) * 1.5f; cfl.mode = FlickerLight.Mode.Flicker; cfl.eventRate = 0.2f;
-
-            // hanging clothes: tops, cardigans and long dresses, shoved together on every hanger
-            string[] fabrics = { "fabric_pink_knit", "fabric_dots", "fabric_white", "fabric_lilac", "fabric_plaid", "fabric_black",
-                                 "fabric_pink_knit", "fabric_white", "fabric_dots", "fabric_lilac", "fabric_black", "fabric_pink_knit", "fabric_plaid" };
-            var rnd = new System.Random(9);
-            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-            for (int i = 0; i < fabrics.Length; i++)
-            {
-                var m = Mat("Hanging " + fabrics[i], fabrics[i], Color.white, Vector2.one, doubleSided: true);
-                float x = -0.47f + i * 0.075f;
-                bool dress = i % 4 == 1 || i % 5 == 3;
-                float len = dress ? R(0.95f, 1.1f) : R(0.5f, 0.7f);
-                var item = Group("Hanging Clothes", g, new Vector3(x, 1.76f, 0));
-                item.localEulerAngles = new Vector3(0, R(-10f, 10f), R(-4f, 4f));
-                Beam("Hanger", item, new Vector3(0, 0.02f, -0.17f), new Vector3(0, -0.05f, 0), 0.008f, 0.008f, metal);
-                Beam("Hanger", item, new Vector3(0, -0.05f, 0), new Vector3(0, 0.02f, 0.17f), 0.008f, 0.008f, metal);
-                Box("Body", item, new Vector3(0, -0.06f - len / 2f, 0), new Vector3(0.04f, len, dress ? 0.36f : 0.4f), m);
-                if (!dress)
-                {
-                    Box("Sleeve", item, new Vector3(0.005f, -0.25f, -0.2f), new Vector3(0.035f, 0.38f, 0.07f), m, new Vector3(-12, 0, 0));
-                    Box("Sleeve", item, new Vector3(0.005f, -0.25f, 0.2f), new Vector3(0.035f, 0.38f, 0.07f), m, new Vector3(12, 0, 0));
-                }
-                else Box("Skirt", item, new Vector3(0, -0.06f - len + 0.12f, 0), new Vector3(0.05f, 0.24f, 0.46f), m);
-            }
-            // one fell off its hanger
-            Prim(PrimitiveType.Sphere, "Fallen Dress", g, new Vector3(0.25f, 0.56f, 0.05f), new Vector3(0.4f, 0.1f, 0.35f), Mat("Hanging fabric_lilac", "fabric_lilac", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 30, 6));
-
-            // shelf: folded stacks that have been dug through; below: shoe boxes and a bag
-            string[] folded = { "fabric_white", "fabric_pink_knit", "fabric_plaid", "fabric_black", "fabric_dots", "fabric_lilac" };
-            for (int s2 = 0; s2 < 3; s2++)
-                for (int k = 0; k < 2 + s2 % 2; k++)
-                {
-                    var m = Mat("Cloth " + folded[(s2 * 2 + k) % folded.Length], folded[(s2 * 2 + k) % folded.Length], Color.white, Vector2.one, doubleSided: true);
-                    Box("Folded", g, new Vector3(-0.32f + s2 * 0.32f + R(-0.03f, 0.03f), 0.535f + k * 0.045f, -0.05f), new Vector3(0.28f, 0.04f, 0.3f), m, new Vector3(R(-3, 3), R(-12, 12), R(-4, 4)));
-                }
-            var boxMat = Mat("Shoe Box", "paint_white", new Color(0.95f, 0.75f, 0.82f), Vector2.one);
-            Box("Shoe Box", g, new Vector3(-0.3f, 0.19f, -0.05f), new Vector3(0.32f, 0.13f, 0.2f), boxMat, new Vector3(0, 6, 0));
-            Box("Shoe Box", g, new Vector3(-0.28f, 0.32f, -0.04f), new Vector3(0.32f, 0.13f, 0.2f), boxMat, new Vector3(0, -8, 0));
-            Box("Shoe Box (lid off)", g, new Vector3(0.12f, 0.17f, 0.0f), new Vector3(0.32f, 0.1f, 0.2f), Mat("Shoe Box 2", "paint_white", new Color(0.85f, 0.85f, 0.9f), Vector2.one), new Vector3(0, 15, 0));
-            Prim(PrimitiveType.Sphere, "Tote Bag", g, new Vector3(0.36f, 0.22f, 0.05f), new Vector3(0.26f, 0.2f, 0.18f), Mat("Kraft Bag", "kraft", Color.white, Vector2.one), new Vector3(0, 0, 10));
-            Interact(g, "look in the wardrobe", false, 0.05f,
-                "so many clothes. none of them are for this body.",
-                "i keep the ones that don't fit. like a promise. or a threat.");
+            // one sleeve caught in the door
+            Box("Sleeve (caught in door)", g, new Vector3(0.02f, 0.75f, 0.33f), new Vector3(0.07f, 0.45f, 0.02f),
+                Mat("Cloth fabric_pink_knit", "fabric_pink_knit", Color.white, Vector2.one, doubleSided: true), new Vector3(8, 0, 6));
+            Interact(g, "open the wardrobe", false, 0.05f,
+                "i don't open it anymore.",
+                "everything in there was bought for a different body.");
         }
 
         static void Clothes(Transform props)
@@ -863,7 +815,7 @@ namespace PinkBackrooms.EditorTools
                 if (!dead) on.Add(b.GetComponent<Renderer>());
             }
             var l = Point(lights, "Chandelier", g.TransformPoint(new Vector3(0, H - 0.5f, 0)), new Color(1f, 0.78f, 0.82f), 1.3f, 5.5f, true);
-            var buzz = Audio(g, "Light Buzz", new Vector3(0, H - 0.4f, 0), "light_buzz.wav", 0.18f, true, true, 5f);
+            var buzz = Audio(g, "Light Buzz", new Vector3(0, H - 0.4f, 0), "light_buzz.wav", 0.1f, true, true, 5f);
             ambience.Add(buzz);
             var fl = g.gameObject.AddComponent<FlickerLight>();
             fl.lights = new[] { l }; fl.bulbs = on.ToArray(); fl.bulbColor = new Color(1f, 0.75f, 0.8f) * 2.5f;
