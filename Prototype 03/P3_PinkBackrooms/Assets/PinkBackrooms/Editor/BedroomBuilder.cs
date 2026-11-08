@@ -492,13 +492,6 @@ namespace PinkBackrooms.EditorTools
             Prim(PrimitiveType.Sphere, "Bow L", g, new Vector3(0.48f, top + 0.012f, 0.12f), new Vector3(0.04f, 0.015f, 0.03f), bow, new Vector3(0, 20, 0));
             Prim(PrimitiveType.Sphere, "Bow R", g, new Vector3(0.52f, top + 0.012f, 0.13f), new Vector3(0.04f, 0.015f, 0.03f), bow, new Vector3(0, -20, 0));
 
-            // music box: the Snake Bird song, slowed down and warped
-            var mb = Group("Music Box", g, new Vector3(-0.3f, top, -0.12f));
-            mb.localEulerAngles = new Vector3(0, 25, 0);
-            var mbMat = Mat("Music Box", "fabric_dots", new Color(1f, 0.85f, 0.9f), Vector2.one);
-            Box("Box", mb, new Vector3(0, 0.035f, 0), new Vector3(0.11f, 0.07f, 0.08f), mbMat);
-            Box("Lid (open)", mb, new Vector3(0, 0.1f, 0.045f), new Vector3(0.11f, 0.07f, 0.008f), mbMat, new Vector3(-15, 0, 0));
-            ambience.Add(Audio(mb, "Music Box (warped)", Vector3.up * 0.05f, "musicbox_warped.ogg", 0.32f, true, true, 5f));
         }
 
         static void MeasuringTape(Transform props, Transform vanity)
