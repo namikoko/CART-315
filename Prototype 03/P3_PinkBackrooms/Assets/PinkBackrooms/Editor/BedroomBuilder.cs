@@ -364,8 +364,8 @@ namespace PinkBackrooms.EditorTools
             var pulse = spk.gameObject.AddComponent<FlickerLight>();
             pulse.lights = new[] { ledGlow }; pulse.bulbs = new[] { led.GetComponent<Renderer>() };
             pulse.bulbColor = new Color(0.4f, 0.6f, 1f) * 3f; pulse.mode = FlickerLight.Mode.Pulse; pulse.pulseSpeed = 0.5f;
-            var aff = Audio(spk, "Affirmations (speaker)", new Vector3(0, 0.05f, 0), "affirmations_speaker.ogg", 0.9f, true, true, 7f);
-            aff.minDistance = 1.5f;      // clearly audible across the bed, fades toward the door
+            var aff = Audio(spk, "Affirmations (speaker)", new Vector3(0, 0.05f, 0), "affirmations_speaker.ogg", 0.55f, true, true, 6f);
+            aff.minDistance = 1.0f;      // soft: you hear it properly when you're near the bed, half-heard from the door
             aff.spatialBlend = 0.75f;    // still sounds like it's coming from the nightstand, but never drops out
             ambience.Add(aff);
             Interact(spk, "listen to the speaker", true, 0.1f,

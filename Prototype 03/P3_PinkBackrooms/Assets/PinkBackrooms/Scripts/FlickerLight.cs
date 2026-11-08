@@ -27,7 +27,10 @@ namespace PinkBackrooms
 
         private static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
 
-        private void Awake()
+        private void Awake() => Init();
+
+        // Also called lazily: a script reload during Play mode clears these non-serialized fields.
+        private void Init()
         {
             _base = new float[lights.Length];
             for (int i = 0; i < lights.Length; i++) _base[i] = lights[i] ? lights[i].intensity : 0;
@@ -39,6 +42,7 @@ namespace PinkBackrooms
 
         public void SetBaseIntensity(float multiplier)
         {
+            if (_base == null) Init();
             for (int i = 0; i < lights.Length; i++) _base[i] *= multiplier;
         }
 
@@ -84,6 +88,7 @@ namespace PinkBackrooms
 
         private void Apply(float k)
         {
+            if (_mpb == null || _base == null || _base.Length != lights.Length) Init();
             _level = k;
             for (int i = 0; i < lights.Length; i++)
                 if (lights[i]) lights[i].intensity = _base[i] * k;

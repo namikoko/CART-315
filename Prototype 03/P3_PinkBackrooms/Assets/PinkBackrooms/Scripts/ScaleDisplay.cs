@@ -46,6 +46,7 @@ namespace PinkBackrooms
 
         private void Set(float k)
         {
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
             if (display)
             {
                 display.GetPropertyBlock(_mpb);
