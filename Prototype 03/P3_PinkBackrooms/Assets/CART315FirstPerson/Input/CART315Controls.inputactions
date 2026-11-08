@@ -78,6 +78,17 @@
           "isComposite": false
         },
         {
+          "name": "",
+          "id": "6b0f5c8e-2f3a-4c1e-9a77-3d2b1f6e8a51",
+          "path": "<Mouse>/scroll",
+          "interactions": "",
+          "processors": "ScaleVector2(x=6,y=-6)",
+          "groups": "Keyboard&Mouse",
+          "action": "Look",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
           "groups": "Keyboard&Mouse",
           "isPartOfComposite": false,
           "name": "",

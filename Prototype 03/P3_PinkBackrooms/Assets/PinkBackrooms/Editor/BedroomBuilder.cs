@@ -73,6 +73,7 @@ namespace PinkBackrooms.EditorTools
             Wardrobe(props);
             Clothes(props);
             Takeout(props);
+            Clutter(props, lights);
             Chandelier(props, lights, ambience);
             Decor(room);
 
@@ -135,14 +136,8 @@ namespace PinkBackrooms.EditorTools
             Wall(room, "Wall West", new Vector3(-HX - 0.1f, 0, 0), D, 0, H, true);
             Wall(room, "Wall South", new Vector3(0, 0, -HZ - 0.1f), W + 0.4f, 0, H, false);
 
-            // East wall with a boarded window opening (z 0..1.2, y 0.9..2.0)
-            float wz0 = 0f, wz1 = 1.2f, wy0 = 0.9f, wy1 = 2.0f;
-            float ex = HX + 0.1f;
-            Wall(room, "Wall East A", new Vector3(ex, 0, (-HZ + wz0) / 2f), wz0 + HZ, 0, H, true);
-            Wall(room, "Wall East B", new Vector3(ex, 0, (wz1 + HZ) / 2f), HZ - wz1, 0, H, true);
-            Wall(room, "Wall East Below Window", new Vector3(ex, 0, (wz0 + wz1) / 2f), wz1 - wz0, 0, wy0, true);
-            Wall(room, "Wall East Above Window", new Vector3(ex, 0, (wz0 + wz1) / 2f), wz1 - wz0, wy1, H, true);
-            Window(room, lights, new Vector3(HX, 0, (wz0 + wz1) / 2f), wz1 - wz0, wy0, wy1);
+            // East wall: no window. Nothing in here lets the outside in.
+            Wall(room, "Wall East", new Vector3(HX + 0.1f, 0, 0), D, 0, H, true);
 
             Trim(room);
             knockSource = Door(room, lights, audio);
@@ -168,50 +163,14 @@ namespace PinkBackrooms.EditorTools
         {
             var white = Mat("Trim", "paint_white", new Color(0.92f, 0.86f, 0.86f), Vector2.one);
             var t = new GameObject("Trim").transform; t.SetParent(room, false);
-            // baseboards, chair rail, crown, on the three plain walls + east wall pieces
+            // baseboards, chair rail and crown on all four walls
             foreach (var (y, h, d) in new[] { (0.06f, 0.12f, 0.025f), (Band, 0.05f, 0.03f), (H - 0.04f, 0.08f, 0.04f) })
             {
                 Box("Trim N", t, new Vector3(0, y, HZ - d / 2), new Vector3(W, h, d), white);
                 Box("Trim S", t, new Vector3(0, y, -HZ + d / 2), new Vector3(W, h, d), white);
                 Box("Trim W", t, new Vector3(-HX + d / 2, y, 0), new Vector3(d, h, D), white);
-                Box("Trim E1", t, new Vector3(HX - d / 2, y, -HZ / 2f), new Vector3(d, h, HZ), white);
-                if (y < 0.9f || y > 2.0f)
-                    Box("Trim E2", t, new Vector3(HX - d / 2, y, 0.6f), new Vector3(d, h, 1.2f), white);
-                Box("Trim E3", t, new Vector3(HX - d / 2, y, (1.2f + HZ) / 2f), new Vector3(d, h, HZ - 1.2f), white);
+                Box("Trim E", t, new Vector3(HX - d / 2, y, 0), new Vector3(d, h, D), white);
             }
-        }
-
-        static void Window(Transform room, Transform lights, Vector3 c, float width, float y0, float y1)
-        {
-            var g = Group("Boarded Window", room, Vector3.zero);
-            var white = Mat("Trim", "paint_white", new Color(0.92f, 0.86f, 0.86f), Vector2.one);
-            float h = y1 - y0, cy = (y0 + y1) / 2f;
-            // reveal (inside of the wall opening)
-            Box("Reveal Top", g, new Vector3(c.x + 0.1f, y1 - 0.01f, c.z), new Vector3(0.2f, 0.02f, width), white);
-            Box("Sill", g, new Vector3(c.x + 0.07f, y0 + 0.01f, c.z), new Vector3(0.3f, 0.04f, width + 0.1f), white);
-            Box("Reveal L", g, new Vector3(c.x + 0.1f, cy, c.z - width / 2 + 0.01f), new Vector3(0.2f, h, 0.02f), white);
-            Box("Reveal R", g, new Vector3(c.x + 0.1f, cy, c.z + width / 2 - 0.01f), new Vector3(0.2f, h, 0.02f), white);
-            // vertical slats of a broken blind behind the boards
-            var blind = Mat("Blind", "paint_white", new Color(0.7f, 0.68f, 0.7f), Vector2.one);
-            for (int i = 0; i < 6; i++)
-                Box("Blind Slat", g, new Vector3(c.x + 0.16f, cy + 0.2f + Random.Range(-0.05f, 0.05f), c.z - 0.5f + i * 0.2f),
-                    new Vector3(0.01f, h * Random.Range(0.4f, 0.7f), 0.07f), blind, new Vector3(Random.Range(-8, 8), 0, Random.Range(-4, 4)));
-            // boards nailed across, with gaps so moonlight cuts through in stripes
-            var plank = Mat("Plank", "plank", Color.white, Vector2.one);
-            float[] ys = { y0 + 0.12f, y0 + 0.42f, y0 + 0.68f, y1 - 0.12f };
-            for (int i = 0; i < ys.Length; i++)
-                Box("Board", g, new Vector3(c.x - 0.03f, ys[i], c.z), new Vector3(0.025f, 0.16f, width + 0.3f), plank,
-                    new Vector3(i % 2 == 0 ? 4f : -6f, 0, 0), collider: false, castShadows: true);
-            // night outside
-            Quad("Night", g, new Vector3(c.x + 0.45f, cy, c.z), new Vector2(width * 1.5f, h * 1.5f),
-                Mat("Night", null, new Color(0.02f, 0.025f, 0.05f), Vector2.one, new Color(0.03f, 0.05f, 0.12f)), new Vector3(0, -90, 0));
-
-            // sits just outside the boards so the gaps throw stripes of light across the floor
-            var moon = Spot(lights, "Moonlight (window)", new Vector3(c.x + 0.32f, 1.95f, c.z), new Vector3(0.9f, 0f, 0.5f),
-                new Color(0.55f, 0.65f, 1f), 14f, 6f, 75f, false);
-            // soft cold spill just inside the window so the boards read even when the moon cone misses the camera
-            Point(lights, "Window Spill", new Vector3(c.x - 0.5f, 1.4f, c.z), new Color(0.5f, 0.6f, 1f), 0.6f, 2.2f, false);
-            moon.innerSpotAngle = 30f;
         }
 
         static AudioSource Door(Transform room, Transform lights, Transform audio)
@@ -382,23 +341,39 @@ namespace PinkBackrooms.EditorTools
             fl.lights = new[] { lamp }; fl.bulbs = new[] { shadeGo.GetComponent<Renderer>() };
             fl.bulbColor = new Color(1f, 0.45f, 0.6f) * 0.6f; fl.mode = FlickerLight.Mode.Pulse; fl.pulseSpeed = 0.08f;
 
-            // right: CRT TV with static
-            var right = Stand("Nightstand Right (TV)", new Vector3(0.66f, 0, 1.97f));
-            var tv = Group("CRT TV", right, new Vector3(0, 0.56f, 0));
-            tv.localEulerAngles = new Vector3(0, -25, 0);
-            var beige = Mat("TV Plastic", "paint_white", new Color(0.85f, 0.8f, 0.72f), Vector2.one);
-            Box("TV Body", tv, new Vector3(0, 0.18f, 0.02f), new Vector3(0.42f, 0.34f, 0.38f), beige, collider: true);
-            Box("TV Back", tv, new Vector3(0, 0.17f, 0.25f), new Vector3(0.3f, 0.24f, 0.14f), beige);
-            var screen = Quad("Screen", tv, new Vector3(0, 0.19f, -0.172f), new Vector2(0.32f, 0.24f),
-                Mat("TV Screen", null, Color.white, Vector2.one, Color.white), Vector3.zero);
-            Box("Bezel", tv, new Vector3(0, 0.04f, -0.17f), new Vector3(0.42f, 0.05f, 0.01f), beige);
-            Beam("Antenna", tv, new Vector3(-0.03f, 0.35f, 0.05f), new Vector3(-0.2f, 0.62f, 0.12f), 0.008f, 0.008f, brass);
-            Beam("Antenna", tv, new Vector3(0.03f, 0.35f, 0.05f), new Vector3(0.24f, 0.58f, 0.02f), 0.008f, 0.008f, brass);
-            var glow = Point(lights, "TV Glow", tv.TransformPoint(new Vector3(0, 0.2f, -0.45f)), new Color(0.7f, 0.8f, 1f), 1.2f, 3.5f, false);
-            var st = tv.gameObject.AddComponent<TVStatic>();
-            st.screen = screen.GetComponent<Renderer>(); st.glow = glow;
-            ambience.Add(Audio(tv, "TV Static", new Vector3(0, 0.2f, 0), "tv_static.wav", 0.28f, true, true, 6f));
-            Interact(tv, "look at the TV", false, 0.05f, "static. it's been static for a while.", "i leave it on so it's not quiet.");
+            // right: a second lamp, phone charger, and a little bluetooth speaker playing affirmations on loop
+            var right = Stand("Nightstand Right", new Vector3(0.66f, 0, 1.97f));
+            Prim(PrimitiveType.Cylinder, "Lamp Base", right, new Vector3(0.08f, 0.58f, 0.05f), new Vector3(0.1f, 0.02f, 0.1f), white);
+            Prim(PrimitiveType.Cylinder, "Lamp Stem", right, new Vector3(0.08f, 0.72f, 0.05f), new Vector3(0.02f, 0.14f, 0.02f), brass);
+            var shade2 = Prim(PrimitiveType.Cylinder, "Lamp Shade (tilted)", right, new Vector3(0.09f, 0.92f, 0.05f), new Vector3(0.24f, 0.09f, 0.24f), shade, new Vector3(-8, 0, -10));
+            var lamp2 = Point(lights, "Bedside Lamp 2", right.TransformPoint(new Vector3(0.08f, 0.85f, 0.05f)), new Color(1f, 0.6f, 0.68f), 0.8f, 2.8f, true);
+            var fl2 = right.gameObject.AddComponent<FlickerLight>();
+            fl2.lights = new[] { lamp2 }; fl2.bulbs = new[] { shade2.GetComponent<Renderer>() };
+            fl2.bulbColor = new Color(1f, 0.45f, 0.6f) * 0.6f; fl2.mode = FlickerLight.Mode.Flicker; fl2.eventRate = 0.12f;
+
+            var spk = Group("Bluetooth Speaker", right, new Vector3(-0.1f, 0.56f, -0.06f));
+            spk.localEulerAngles = new Vector3(0, -20, 0);
+            var spkMat = Mat("Speaker Fabric", "fabric_pink_knit", new Color(0.95f, 0.75f, 0.82f), new Vector2(2, 1));
+            var spkCap = Mat("Speaker Cap", null, new Color(0.92f, 0.88f, 0.9f), Vector2.one, null, 0.5f);
+            Prim(PrimitiveType.Capsule, "Speaker Body", spk, new Vector3(0, 0.045f, 0), new Vector3(0.09f, 0.08f, 0.09f), spkMat, new Vector3(0, 0, 90));
+            Prim(PrimitiveType.Cylinder, "Speaker End", spk, new Vector3(-0.085f, 0.045f, 0), new Vector3(0.085f, 0.006f, 0.085f), spkCap, new Vector3(0, 0, 90));
+            Prim(PrimitiveType.Cylinder, "Speaker End", spk, new Vector3(0.085f, 0.045f, 0), new Vector3(0.085f, 0.006f, 0.085f), spkCap, new Vector3(0, 0, 90));
+            var led = Prim(PrimitiveType.Sphere, "Speaker LED", spk, new Vector3(0, 0.09f, -0.02f), Vector3.one * 0.012f,
+                Mat("Speaker LED", null, Color.black, Vector2.one, new Color(0.4f, 0.6f, 1f) * 3f));
+            var ledGlow = Point(lights, "Speaker LED Glow", spk.TransformPoint(new Vector3(0, 0.12f, -0.03f)), new Color(0.45f, 0.6f, 1f), 0.25f, 0.6f, false);
+            var pulse = spk.gameObject.AddComponent<FlickerLight>();
+            pulse.lights = new[] { ledGlow }; pulse.bulbs = new[] { led.GetComponent<Renderer>() };
+            pulse.bulbColor = new Color(0.4f, 0.6f, 1f) * 3f; pulse.mode = FlickerLight.Mode.Pulse; pulse.pulseSpeed = 0.5f;
+            ambience.Add(Audio(spk, "Affirmations (speaker)", new Vector3(0, 0.05f, 0), "affirmations_speaker.ogg", 0.5f, true, true, 6f));
+            Interact(spk, "listen to the speaker", true, 0.1f,
+                "the same playlist. it's been on repeat for days.",
+                "i don't believe any of it. i leave it on anyway.",
+                "maybe if i hear it enough times.");
+            // phone charger cable trailing off the edge
+            var cable = Mat("Cable", null, new Color(0.92f, 0.9f, 0.9f), Vector2.one);
+            Beam("Charger Cable", right, new Vector3(0.12f, 0.565f, -0.12f), new Vector3(0.2f, 0.565f, -0.2f), 0.006f, 0.006f, cable);
+            Beam("Charger Cable", right, new Vector3(0.2f, 0.565f, -0.2f), new Vector3(0.24f, 0.25f, -0.24f), 0.006f, 0.006f, cable);
+            Beam("Charger Cable", right, new Vector3(0.24f, 0.25f, -0.24f), new Vector3(0.1f, 0.005f, -0.4f), 0.006f, 0.006f, cable);
         }
 
         // ------------------------------------------------------------------ vanity, mirror, measuring tape
@@ -606,31 +581,85 @@ namespace PinkBackrooms.EditorTools
 
         static void Wardrobe(Transform props)
         {
+            // An armoire stuffed full: both doors open, every hanger used, folded stacks and shoe boxes below.
             var g = Group("Wardrobe", props, new Vector3(1.55f, 0, -HZ + 0.3f));
             var white = Mat("Furniture White", "paint_white", Color.white, Vector2.one);
-            var inside = Mat("Wardrobe Inside", null, new Color(0.12f, 0.09f, 0.1f), Vector2.one);
+            var inside = Mat("Wardrobe Inside", "paint_white", new Color(0.55f, 0.42f, 0.46f), Vector2.one);
+            var metal = Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f);
             Box("Back", g, new Vector3(0, 1.0f, -0.28f), new Vector3(1.1f, 2.0f, 0.04f), inside, collider: true);
             Box("Side L", g, new Vector3(-0.53f, 1.0f, 0), new Vector3(0.04f, 2.0f, 0.6f), white, collider: true);
             Box("Side R", g, new Vector3(0.53f, 1.0f, 0), new Vector3(0.04f, 2.0f, 0.6f), white, collider: true);
             Box("Top", g, new Vector3(0, 1.98f, 0), new Vector3(1.1f, 0.04f, 0.6f), white);
             Box("Bottom", g, new Vector3(0, 0.06f, 0), new Vector3(1.1f, 0.12f, 0.6f), white, collider: true);
-            Box("Door (shut)", g, new Vector3(0.27f, 1.02f, 0.3f), new Vector3(0.53f, 1.9f, 0.03f), white, collider: true);
-            var hinge = Group("Door (open) Hinge", g, new Vector3(-0.54f, 0, 0.3f));
-            hinge.localEulerAngles = new Vector3(0, -105, 0);
-            Box("Door (open)", hinge, new Vector3(0.27f, 1.02f, 0), new Vector3(0.53f, 1.9f, 0.03f), white, collider: true);
-            Prim(PrimitiveType.Cylinder, "Rail", g, new Vector3(0, 1.75f, 0), new Vector3(0.02f, 0.52f, 0.02f), Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f), new Vector3(0, 0, 90));
-            string[] fabrics = { "fabric_pink_knit", "fabric_dots", "fabric_white", "fabric_lilac", "fabric_plaid", "fabric_pink_knit", "fabric_black" };
+            Box("Shelf", g, new Vector3(0, 0.5f, 0), new Vector3(1.02f, 0.025f, 0.54f), inside);
+            foreach (var (side, yaw) in new[] { (-1f, -110f), (1f, 115f) })
+            {
+                var hinge = Group("Door Hinge", g, new Vector3(0.54f * side, 0, 0.3f));
+                hinge.localEulerAngles = new Vector3(0, yaw, 0);
+                Box("Door (open)", hinge, new Vector3(-0.27f * side, 1.02f, 0), new Vector3(0.53f, 1.9f, 0.03f), white, collider: true);
+                Box("Door Mirror Strip", hinge, new Vector3(-0.27f * side, 1.2f, side > 0 ? 0.017f : -0.017f), new Vector3(0.3f, 0.9f, 0.004f),
+                    Mat("Mirror Glass", null, new Color(0.16f, 0.12f, 0.14f), Vector2.one, Color.black, 0.95f, metallic: 0.9f, reflections: true));
+            }
+            Prim(PrimitiveType.Cylinder, "Rail", g, new Vector3(0, 1.78f, 0), new Vector3(0.02f, 0.52f, 0.02f), metal, new Vector3(0, 0, 90));
+
+            // a dim bulb inside so you can actually see what's in there
+            var bulb = Prim(PrimitiveType.Sphere, "Closet Bulb", g, new Vector3(0, 1.93f, 0.05f), Vector3.one * 0.05f,
+                Mat("Closet Bulb", null, Color.white, Vector2.one, new Color(1f, 0.75f, 0.8f) * 1.5f));
+            var cl = new GameObject("Closet Light").AddComponent<Light>();
+            cl.transform.SetParent(g, false); cl.transform.localPosition = new Vector3(0, 1.8f, 0.25f);
+            cl.type = LightType.Point; cl.color = new Color(1f, 0.7f, 0.78f); cl.intensity = 0.7f; cl.range = 1.6f;
+            var cfl = g.gameObject.AddComponent<FlickerLight>();
+            cfl.lights = new[] { cl }; cfl.bulbs = new[] { bulb.GetComponent<Renderer>() };
+            cfl.bulbColor = new Color(1f, 0.75f, 0.8f) * 1.5f; cfl.mode = FlickerLight.Mode.Flicker; cfl.eventRate = 0.2f;
+
+            // hanging clothes: tops, cardigans and long dresses, shoved together on every hanger
+            string[] fabrics = { "fabric_pink_knit", "fabric_dots", "fabric_white", "fabric_lilac", "fabric_plaid", "fabric_black",
+                                 "fabric_pink_knit", "fabric_white", "fabric_dots", "fabric_lilac", "fabric_black", "fabric_pink_knit", "fabric_plaid" };
+            var rnd = new System.Random(9);
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
             for (int i = 0; i < fabrics.Length; i++)
             {
-                var m = Mat("Hanging " + fabrics[i], fabrics[i], Color.white, Vector2.one);
-                Box("Hanging Clothes", g, new Vector3(-0.45f + i * 0.075f, 1.32f - (i % 3) * 0.05f, 0.0f), new Vector3(0.035f, 0.78f, 0.42f), m, new Vector3(0, Random.Range(-8f, 8f), Random.Range(-3f, 3f)));
+                var m = Mat("Hanging " + fabrics[i], fabrics[i], Color.white, Vector2.one, doubleSided: true);
+                float x = -0.47f + i * 0.075f;
+                bool dress = i % 4 == 1 || i % 5 == 3;
+                float len = dress ? R(0.95f, 1.1f) : R(0.5f, 0.7f);
+                var item = Group("Hanging Clothes", g, new Vector3(x, 1.76f, 0));
+                item.localEulerAngles = new Vector3(0, R(-10f, 10f), R(-4f, 4f));
+                Beam("Hanger", item, new Vector3(0, 0.02f, -0.17f), new Vector3(0, -0.05f, 0), 0.008f, 0.008f, metal);
+                Beam("Hanger", item, new Vector3(0, -0.05f, 0), new Vector3(0, 0.02f, 0.17f), 0.008f, 0.008f, metal);
+                Box("Body", item, new Vector3(0, -0.06f - len / 2f, 0), new Vector3(0.04f, len, dress ? 0.36f : 0.4f), m);
+                if (!dress)
+                {
+                    Box("Sleeve", item, new Vector3(0.005f, -0.25f, -0.2f), new Vector3(0.035f, 0.38f, 0.07f), m, new Vector3(-12, 0, 0));
+                    Box("Sleeve", item, new Vector3(0.005f, -0.25f, 0.2f), new Vector3(0.035f, 0.38f, 0.07f), m, new Vector3(12, 0, 0));
+                }
+                else Box("Skirt", item, new Vector3(0, -0.06f - len + 0.12f, 0), new Vector3(0.05f, 0.24f, 0.46f), m);
             }
+            // one fell off its hanger
+            Prim(PrimitiveType.Sphere, "Fallen Dress", g, new Vector3(0.25f, 0.56f, 0.05f), new Vector3(0.4f, 0.1f, 0.35f), Mat("Hanging fabric_lilac", "fabric_lilac", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 30, 6));
+
+            // shelf: folded stacks that have been dug through; below: shoe boxes and a bag
+            string[] folded = { "fabric_white", "fabric_pink_knit", "fabric_plaid", "fabric_black", "fabric_dots", "fabric_lilac" };
+            for (int s2 = 0; s2 < 3; s2++)
+                for (int k = 0; k < 2 + s2 % 2; k++)
+                {
+                    var m = Mat("Cloth " + folded[(s2 * 2 + k) % folded.Length], folded[(s2 * 2 + k) % folded.Length], Color.white, Vector2.one, doubleSided: true);
+                    Box("Folded", g, new Vector3(-0.32f + s2 * 0.32f + R(-0.03f, 0.03f), 0.535f + k * 0.045f, -0.05f), new Vector3(0.28f, 0.04f, 0.3f), m, new Vector3(R(-3, 3), R(-12, 12), R(-4, 4)));
+                }
+            var boxMat = Mat("Shoe Box", "paint_white", new Color(0.95f, 0.75f, 0.82f), Vector2.one);
+            Box("Shoe Box", g, new Vector3(-0.3f, 0.19f, -0.05f), new Vector3(0.32f, 0.13f, 0.2f), boxMat, new Vector3(0, 6, 0));
+            Box("Shoe Box", g, new Vector3(-0.28f, 0.32f, -0.04f), new Vector3(0.32f, 0.13f, 0.2f), boxMat, new Vector3(0, -8, 0));
+            Box("Shoe Box (lid off)", g, new Vector3(0.12f, 0.17f, 0.0f), new Vector3(0.32f, 0.1f, 0.2f), Mat("Shoe Box 2", "paint_white", new Color(0.85f, 0.85f, 0.9f), Vector2.one), new Vector3(0, 15, 0));
+            Prim(PrimitiveType.Sphere, "Tote Bag", g, new Vector3(0.36f, 0.22f, 0.05f), new Vector3(0.26f, 0.2f, 0.18f), Mat("Kraft Bag", "kraft", Color.white, Vector2.one), new Vector3(0, 0, 10));
+            Interact(g, "look in the wardrobe", false, 0.05f,
+                "so many clothes. none of them are for this body.",
+                "i keep the ones that don't fit. like a promise. or a threat.");
         }
 
         static void Clothes(Transform props)
         {
             // main pile spilling out of the wardrobe
-            var pile = Group("Clothes Pile", props, new Vector3(1.3f, 0, -1.3f));
+            var pile = Group("Clothes Pile", props, new Vector3(1.55f, 0, -1.2f));
             string[] fabrics = { "fabric_pink_knit", "fabric_black", "fabric_white", "fabric_plaid", "fabric_dots", "fabric_lilac", "fabric_white", "fabric_pink_knit", "fabric_black", "fabric_dots", "fabric_lilac", "fabric_plaid", "fabric_white", "fabric_pink_knit" };
             var rnd = new System.Random(4);
             float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
@@ -681,6 +710,133 @@ namespace PinkBackrooms.EditorTools
             // one more bag by the bed
             var b2 = Group("Takeout Bag (by bed)", props, new Vector3(0.55f, 0, 0.45f));
             Box("Bag (crumpled)", b2, new Vector3(0, 0.1f, 0), new Vector3(0.22f, 0.2f, 0.14f), kraft, new Vector3(8, -50, 12));
+        }
+
+        // ------------------------------------------------------------------ clutter
+
+        /// Everyday mess around the edges of the room. Kept off the walking path so the key objects still read.
+        static void Clutter(Transform props, Transform lights)
+        {
+            var g = Group("Clutter", props, Vector3.zero);
+            var rnd = new System.Random(21);
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            var white = Mat("Furniture White", "paint_white", Color.white, Vector2.one);
+            var tissue = Mat("Tissue", "fabric_white", Color.white, Vector2.one);
+            var paper = Mat("Receipt", "fabric_white", Color.white, Vector2.one);
+            var bottle = Mat("Water Bottle", null, new Color(0.7f, 0.82f, 0.9f), Vector2.one, null, 0.85f);
+            var cap = Mat("Bottle Cap", null, new Color(0.3f, 0.5f, 0.9f), Vector2.one, null, 0.4f);
+            var can = Mat("Can Pink", null, new Color(0.95f, 0.45f, 0.65f), Vector2.one, null, 0.7f, metallic: 0.6f);
+            var can2 = Mat("Can Silver", null, new Color(0.75f, 0.75f, 0.8f), Vector2.one, null, 0.7f, metallic: 0.7f);
+            var cupMat = Mat("Cup", null, new Color(0.95f, 0.85f, 0.88f), Vector2.one, null, 0.3f);
+            var metal = Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f);
+
+            // tissues and receipts drifting around the bed and nightstands
+            Vector3[] tissueSpots = { new(-1.25f, 0, 1.75f), new(-1.5f, 0, 1.3f), new(-1.1f, 0, 0.3f), new(0.45f, 0, 1.4f), new(0.95f, 0, 1.7f), new(-1.9f, 0, 1.6f), new(0.35f, 0, 0.1f) };
+            foreach (var p in tissueSpots)
+                Prim(PrimitiveType.Sphere, "Tissue", g, p + new Vector3(R(-0.1f, 0.1f), 0.02f, R(-0.1f, 0.1f)), new Vector3(R(0.05f, 0.08f), 0.04f, R(0.05f, 0.07f)), tissue, new Vector3(0, R(0, 360), 0));
+            for (int i = 0; i < 6; i++)
+                Box("Paper", g, new Vector3(R(-2.2f, 2.2f), 0.002f, R(-2.0f, -1.3f)), new Vector3(R(0.08f, 0.2f), 0.002f, R(0.12f, 0.28f)), paper, new Vector3(0, R(0, 360), 0));
+
+            // bottles, cans and cups
+            void Bottle(Vector3 p, bool down)
+            {
+                var b = Group("Water Bottle", g, p); b.localEulerAngles = down ? new Vector3(90, R(0, 360), 0) : Vector3.zero;
+                Prim(PrimitiveType.Cylinder, "Bottle", b, new Vector3(0, 0.11f, 0), new Vector3(0.065f, 0.11f, 0.065f), bottle);
+                Prim(PrimitiveType.Cylinder, "Cap", b, new Vector3(0, 0.235f, 0), new Vector3(0.03f, 0.015f, 0.03f), cap);
+            }
+            Bottle(new Vector3(0.4f, 0.035f, 0.75f), true);
+            Bottle(new Vector3(-1.3f, 0f, 1.95f), false);
+            Bottle(new Vector3(1.05f, 0f, 1.85f), false);
+            Bottle(new Vector3(-2.15f, 0.035f, 0.3f), true);
+            Prim(PrimitiveType.Cylinder, "Can", g, new Vector3(1.05f, 0.033f, 1.3f), new Vector3(0.066f, 0.06f, 0.066f), can, new Vector3(90, 30, 0));
+            Prim(PrimitiveType.Cylinder, "Can", g, new Vector3(-1.0f, 0.06f, -1.85f), new Vector3(0.066f, 0.06f, 0.066f), can2);
+            Prim(PrimitiveType.Cylinder, "Can (crushed)", g, new Vector3(1.9f, 0.02f, 0.95f), new Vector3(0.07f, 0.02f, 0.07f), can, new Vector3(0, 0, 8));
+            Prim(PrimitiveType.Cylinder, "Mug", g, new Vector3(-1.55f, 0.6f, 2.07f), new Vector3(0.08f, 0.045f, 0.08f), cupMat);
+
+            // laundry basket overflowing in the corner
+            var basket = Group("Laundry Basket", g, new Vector3(2.12f, 0, 1.78f));
+            basket.localEulerAngles = new Vector3(0, 15, 0);
+            var wicker = Mat("Basket", "plank", new Color(0.95f, 0.85f, 0.88f), new Vector2(2, 1));
+            Prim(PrimitiveType.Cylinder, "Basket", basket, new Vector3(0, 0.22f, 0), new Vector3(0.48f, 0.22f, 0.4f), wicker, Vector3.zero, collider: true);
+            string[] f = { "fabric_white", "fabric_pink_knit", "fabric_black", "fabric_dots", "fabric_lilac", "fabric_plaid" };
+            for (int i = 0; i < 7; i++)
+                Prim(PrimitiveType.Sphere, "Laundry", basket, new Vector3(R(-0.15f, 0.15f), 0.42f + i * 0.03f, R(-0.12f, 0.12f)), new Vector3(R(0.18f, 0.3f), R(0.08f, 0.14f), R(0.15f, 0.25f)), Mat("Cloth " + f[i % f.Length], f[i % f.Length], Color.white, Vector2.one, doubleSided: true), new Vector3(R(-15, 15), R(0, 360), R(-15, 15)));
+            Box("Laundry (spilling)", basket, new Vector3(-0.32f, 0.2f, 0.05f), new Vector3(0.03f, 0.35f, 0.25f), Mat("Cloth fabric_dots", "fabric_dots", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 0, 25));
+            Box("Laundry (floor)", g, new Vector3(1.75f, 0.012f, 1.6f), new Vector3(0.35f, 0.02f, 0.3f), Mat("Cloth fabric_pink_knit", "fabric_pink_knit", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 40, 0));
+
+            // shoes kicked off by the door
+            void Shoe(Vector3 p, float yaw, Color c, bool tipped)
+            {
+                var sh = Group("Shoe", g, p); sh.localEulerAngles = new Vector3(0, yaw, tipped ? 80 : 0);
+                var m = Mat("Shoe " + ColorUtility.ToHtmlStringRGB(c), "fabric_white", c, Vector2.one, null, 0.2f);
+                Box("Sole", sh, new Vector3(0, 0.015f, 0), new Vector3(0.1f, 0.03f, 0.26f), Mat("Sole", null, new Color(0.95f, 0.93f, 0.92f), Vector2.one));
+                Prim(PrimitiveType.Sphere, "Upper", sh, new Vector3(0, 0.05f, -0.02f), new Vector3(0.1f, 0.08f, 0.22f), m);
+            }
+            Shoe(new Vector3(-0.85f, 0, -1.95f), 20, new Color(1f, 0.8f, 0.86f), false);
+            Shoe(new Vector3(-0.65f, 0, -1.75f), 95, new Color(1f, 0.8f, 0.86f), true);
+            Shoe(new Vector3(0.75f, 0, -1.95f), -40, new Color(0.95f, 0.95f, 0.97f), false);
+            Shoe(new Vector3(-2.2f, 0, -1.95f), 60, new Color(0.3f, 0.28f, 0.3f), true);
+
+            // backpack slumped against the wall by the door
+            var bag = Group("Backpack", g, new Vector3(-0.85f, 0, -2.08f));
+            var bp = Mat("Backpack", "fabric_lilac", new Color(0.9f, 0.85f, 0.95f), Vector2.one);
+            Prim(PrimitiveType.Capsule, "Body", bag, new Vector3(0, 0.2f, 0), new Vector3(0.32f, 0.2f, 0.18f), bp, new Vector3(-12, 0, 0), collider: true);
+            Box("Pocket", bag, new Vector3(0, 0.14f, 0.1f), new Vector3(0.22f, 0.14f, 0.05f), bp, new Vector3(-12, 0, 0));
+            Prim(PrimitiveType.Sphere, "Charm", bag, new Vector3(0.12f, 0.32f, 0.11f), Vector3.one * 0.04f, Mat("Bow", null, new Color(0.95f, 0.55f, 0.7f), Vector2.one, null, 0.4f));
+
+            // pink shopping bags by the vanity
+            var shop = Mat("Shopping Bag", "paint_white", new Color(1f, 0.72f, 0.82f), Vector2.one, null, 0.3f);
+            var shop2 = Mat("Shopping Bag White", "paint_white", new Color(0.97f, 0.95f, 0.95f), Vector2.one, null, 0.3f);
+            foreach (var (p, yaw, m, tip) in new[] { (new Vector3(-2.15f, 0, -1.55f), 20f, shop, 0f), (new Vector3(-1.85f, 0, -1.85f), -30f, shop2, 0f), (new Vector3(-1.75f, 0, -1.45f), 70f, shop, 85f) })
+            {
+                var sb = Group("Shopping Bag", g, p); sb.localEulerAngles = new Vector3(tip, yaw, 0);
+                Box("Bag", sb, new Vector3(0, 0.17f, 0), new Vector3(0.3f, 0.34f, 0.12f), m);
+                Beam("Handle", sb, new Vector3(-0.07f, 0.34f, 0), new Vector3(0, 0.42f, 0), 0.01f, 0.01f, m);
+                Beam("Handle", sb, new Vector3(0, 0.42f, 0), new Vector3(0.07f, 0.34f, 0), 0.01f, 0.01f, m);
+                Box("Tissue Paper", sb, new Vector3(0, 0.35f, 0), new Vector3(0.22f, 0.06f, 0.08f), tissue, new Vector3(0, 0, 8));
+            }
+
+            // books and magazines stacked by the bed, one open face down
+            var books = Group("Books", g, new Vector3(1.05f, 0, 1.55f));
+            Color[] bc = { new(0.8f, 0.5f, 0.6f), new(0.9f, 0.85f, 0.8f), new(0.55f, 0.5f, 0.7f), new(0.95f, 0.7f, 0.75f) };
+            for (int i = 0; i < 4; i++)
+                Box("Book", books, new Vector3(R(-0.02f, 0.02f), 0.02f + i * 0.04f, R(-0.02f, 0.02f)), new Vector3(R(0.16f, 0.22f), 0.035f, R(0.22f, 0.28f)), Mat("Book " + i, "paint_white", bc[i], Vector2.one), new Vector3(0, R(-15, 15), 0));
+            Box("Book (open)", g, new Vector3(0.65f, 0.025f, 1.1f), new Vector3(0.34f, 0.03f, 0.24f), Mat("Book 2", "paint_white", bc[2], Vector2.one), new Vector3(0, 25, 4));
+
+            // hangers dropped in front of the wardrobe
+            for (int i = 0; i < 3; i++)
+            {
+                var h = Group("Hanger (floor)", g, new Vector3(1.1f + i * 0.18f, 0.008f, -1.75f + R(-0.1f, 0.1f)));
+                h.localEulerAngles = new Vector3(0, R(0, 360), 0);
+                Beam("Hanger", h, new Vector3(-0.17f, 0, 0), new Vector3(0, 0, 0.08f), 0.008f, 0.008f, metal);
+                Beam("Hanger", h, new Vector3(0, 0, 0.08f), new Vector3(0.17f, 0, 0), 0.008f, 0.008f, metal);
+                Beam("Hanger", h, new Vector3(-0.17f, 0, 0), new Vector3(0.17f, 0, 0), 0.008f, 0.008f, metal);
+            }
+
+            // a pillow and a plush that fell off the bed
+            Prim(PrimitiveType.Sphere, "Pillow (fallen)", g, new Vector3(0.48f, 0.08f, 0.85f), new Vector3(0.5f, 0.15f, 0.34f), Mat("Pillow Pink", "fabric_dots", Color.white, new Vector2(2, 1)), new Vector3(0, 30, 12));
+            var plush = Group("Plush (face down)", g, new Vector3(-1.35f, 0.07f, 0.65f));
+            plush.localEulerAngles = new Vector3(80, 40, 0);
+            var fur = Mat("Plush Lilac", "fabric_white", new Color(0.85f, 0.8f, 0.95f), Vector2.one);
+            Prim(PrimitiveType.Sphere, "Body", plush, Vector3.zero, new Vector3(0.16f, 0.18f, 0.14f), fur);
+            Prim(PrimitiveType.Sphere, "Head", plush, new Vector3(0, 0.13f, 0), Vector3.one * 0.13f, fur);
+            Prim(PrimitiveType.Sphere, "Ear", plush, new Vector3(-0.05f, 0.2f, 0), Vector3.one * 0.05f, fur);
+            Prim(PrimitiveType.Sphere, "Ear", plush, new Vector3(0.05f, 0.2f, 0), Vector3.one * 0.05f, fur);
+
+            // phone on the bed, screen lighting up the sheets
+            var phone = Group("Phone", g, new Vector3(-0.3f, 0.6f, 0.95f));
+            phone.localEulerAngles = new Vector3(0, 35, 0);
+            Box("Phone", phone, Vector3.zero, new Vector3(0.075f, 0.01f, 0.15f), Mat("Phone Case", null, new Color(0.95f, 0.7f, 0.8f), Vector2.one, null, 0.5f));
+            Box("Screen", phone, new Vector3(0, 0.0055f, 0), new Vector3(0.065f, 0.002f, 0.14f), Mat("Phone Screen", null, Color.black, Vector2.one, new Color(0.7f, 0.75f, 1f) * 1.2f));
+            Point(lights, "Phone Glow", phone.TransformPoint(new Vector3(0, 0.12f, 0)), new Color(0.65f, 0.72f, 1f), 0.3f, 0.7f, false);
+
+            // scrunchies and a hair brush on the floor by the vanity
+            var scrunch = Mat("Scrunchie", "fabric_pink_knit", Color.white, Vector2.one);
+            Prim(PrimitiveType.Sphere, "Scrunchie", g, new Vector3(-1.95f, 0.015f, 0.05f), new Vector3(0.07f, 0.03f, 0.07f), scrunch);
+            Prim(PrimitiveType.Sphere, "Scrunchie", g, new Vector3(-1.2f, 0.015f, -0.35f), new Vector3(0.07f, 0.03f, 0.07f), Mat("Scrunchie Black", "fabric_black", Color.white, Vector2.one));
+            var brush = Group("Hair Brush", g, new Vector3(-2.0f, 0.02f, -1.15f)); brush.localEulerAngles = new Vector3(0, 50, 0);
+            Box("Head", brush, new Vector3(0, 0, 0.06f), new Vector3(0.07f, 0.025f, 0.1f), Mat("Brush Pink", null, new Color(0.95f, 0.65f, 0.75f), Vector2.one, null, 0.4f));
+            Box("Handle", brush, new Vector3(0, 0, -0.06f), new Vector3(0.03f, 0.02f, 0.13f), Mat("Brush Pink", null, new Color(0.95f, 0.65f, 0.75f), Vector2.one, null, 0.4f));
         }
 
         // ------------------------------------------------------------------ chandelier + decor
@@ -747,7 +903,6 @@ namespace PinkBackrooms.EditorTools
             Prim(PrimitiveType.Cylinder, "Rug", g, new Vector3(0.05f, 0.006f, -0.4f), new Vector3(1.8f, 0.006f, 1.5f), Mat("Rug", "rug", Color.white, new Vector2(2, 2)));
 
             // posters + a framed photo (original designs)
-            Quad("Poster", g, new Vector3(HX - e * 2, 1.55f, 1.8f), new Vector2(0.4f, 0.6f), Mat("Poster 0", "poster_0", Color.white, Vector2.one), new Vector3(0, 90, -3));
             Quad("Poster", g, new Vector3(-0.2f, 1.6f, -HZ + e * 2), new Vector2(0.4f, 0.6f), Mat("Poster 1", "poster_1", Color.white, Vector2.one), new Vector3(0, 180, 4));
             var fr = Group("Framed Photo", g, new Vector3(-1.66f, 1.55f, HZ - 0.02f));
             Box("Frame", fr, Vector3.zero, new Vector3(0.32f, 0.4f, 0.03f), Mat("Frame Dark", null, new Color(0.15f, 0.1f, 0.1f), Vector2.one), new Vector3(0, 0, -4));
