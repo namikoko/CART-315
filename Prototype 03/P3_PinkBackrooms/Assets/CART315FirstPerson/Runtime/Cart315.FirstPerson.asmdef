@@ -1,0 +1,5 @@
+{
+  "name": "Cart315.FirstPerson",
+  "rootNamespace": "Cart315.FirstPerson",
+  "references": ["Unity.InputSystem"]
+}

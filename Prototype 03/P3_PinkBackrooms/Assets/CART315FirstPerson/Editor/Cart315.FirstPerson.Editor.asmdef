@@ -1,0 +1,5 @@
+{
+  "name": "Cart315.FirstPerson.Editor",
+  "references": ["Cart315.FirstPerson", "Unity.InputSystem"],
+  "includePlatforms": ["Editor"]
+}
