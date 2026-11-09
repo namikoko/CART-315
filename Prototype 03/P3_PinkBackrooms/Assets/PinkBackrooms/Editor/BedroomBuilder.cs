@@ -855,21 +855,15 @@ namespace PinkBackrooms.EditorTools
             const float standTop = 0.56f;
 
             // --- period stain on the bare part of the mattress
-            var blood = Mat("Stain Blood", "stain_blood", Color.white, Vector2.one, clip: true, doubleSided: true);
             var bloodOld = Mat("Stain Blood Old", "stain_blood_old", Color.white, Vector2.one, clip: true, doubleSided: true);
-            var bloodFaded = Mat("Stain Blood Faded", "stain_blood_old", new Color(1.05f, 0.95f, 0.88f), Vector2.one, clip: true, doubleSided: true);
+            var bloodFaded = Mat("Stain Blood Faded", "stain_blood_old", new Color(1.12f, 1.08f, 1.04f), Vector2.one, clip: true, doubleSided: true);
             Vector3 bed = new Vector3(-0.5f, 0, 1.15f);
             void Stain(string n, Vector3 local, float yaw, float w, float h, Material m, float y = 0.583f)
                 => Quad(n, g, bed + new Vector3(local.x, y, local.z), new Vector2(w, h), m, new Vector3(90, yaw, 0));
-            // on the bare mattress: one recent, older ones around it that never washed out
-            Stain("Period Stain", new Vector3(0.33f, 0, -0.62f), 25, 0.42f, 0.34f, blood);
-            Stain("Period Stain (old)", new Vector3(0.02f, 0, -0.38f), 140, 0.36f, 0.3f, bloodOld);
-            Stain("Period Stain (old)", new Vector3(0.58f, 0, -0.84f), 80, 0.5f, 0.38f, bloodFaded);
-            Stain("Period Stain (faded)", new Vector3(-0.06f, 0, -0.82f), 200, 0.3f, 0.26f, bloodFaded);
-            Stain("Period Stain (old)", new Vector3(-0.45f, 0, 0.62f), 300, 0.38f, 0.3f, bloodOld);
-            // and soaked through onto the sheet
-            Stain("Period Stain (sheet)", new Vector3(0.22f, 0, -0.04f), 60, 0.34f, 0.28f, blood, 0.597f);
-            Stain("Period Stain (sheet, old)", new Vector3(0.52f, 0, 0.32f), 170, 0.28f, 0.22f, bloodOld, 0.597f);
+            // old period stains set into the mattress over time: brown, faded, never came out
+            Stain("Period Stain (old)", new Vector3(0.3f, 0, -0.6f), 25, 0.3f, 0.24f, bloodOld);
+            Stain("Period Stain (older)", new Vector3(0.0f, 0, -0.42f), 140, 0.22f, 0.18f, bloodFaded);
+            Stain("Period Stain (older)", new Vector3(0.55f, 0, -0.85f), 80, 0.26f, 0.2f, bloodFaded);
 
             // --- macbook open on the bed, the only screen in the room
             var mac = Group("Laptop", g, new Vector3(-0.2f, 0.6f, 1.65f));
@@ -1015,31 +1009,25 @@ namespace PinkBackrooms.EditorTools
             var sauce = Mat("Sauce Smear", "stain_blood_old", new Color(1.15f, 0.8f, 0.45f), Vector2.one, clip: true, doubleSided: true);
             var crumb = Mat("Food Bits", null, new Color(0.9f, 0.8f, 0.6f), Vector2.one);
             var steel = Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f);
-            // stacked plates: a foot, a wide flat rim, a slightly sunken well, sauce dried on the top one
+            // stacked plates (real plate shape: foot, shallow well, raised lip), sauce dried on the top one
             for (int i = 0; i < 3; i++)
-            {
-                var pl = Group("Plate", dishes, new Vector3(R(-0.015f, 0.015f), i * 0.016f, R(-0.015f, 0.015f)));
-                Prim(PrimitiveType.Cylinder, "Foot", pl, new Vector3(0, 0.004f, 0), new Vector3(0.14f, 0.004f, 0.14f), plate);
-                Prim(PrimitiveType.Cylinder, "Rim", pl, new Vector3(0, 0.011f, 0), new Vector3(0.25f, 0.003f, 0.25f), plate);
-                Prim(PrimitiveType.Cylinder, "Well", pl, new Vector3(0, 0.0125f, 0), new Vector3(0.17f, 0.0015f, 0.17f), well);
-            }
-            Quad("Sauce", dishes, new Vector3(0.01f, 0.0465f, 0.0f), new Vector2(0.14f, 0.11f), sauce, new Vector3(90, 40, 0));
+                Model("Plate", dishes, new Vector3(R(-0.008f, 0.008f), i * 0.0135f, R(-0.008f, 0.008f)), R(0, 360), "Props/plate", plate);
+            float top = 2 * 0.0135f + 0.0095f;
+            Quad("Sauce", dishes, new Vector3(0.01f, top + 0.0005f, 0.0f), new Vector2(0.11f, 0.09f), sauce, new Vector3(90, 40, 0));
             for (int i = 0; i < 7; i++)
-                Prim(PrimitiveType.Sphere, "Food Bit", dishes, new Vector3(R(-0.06f, 0.06f), 0.049f, R(-0.05f, 0.05f)), new Vector3(R(0.008f, 0.016f), 0.006f, R(0.006f, 0.012f)), crumb, new Vector3(0, R(0, 180), 0));
-            // fork resting on the plate
-            var fork = Group("Fork", dishes, new Vector3(0.04f, 0.05f, 0.02f)); fork.localEulerAngles = new Vector3(0, 35, 4);
+                Prim(PrimitiveType.Sphere, "Food Bit", dishes, new Vector3(R(-0.05f, 0.05f), top + 0.002f, R(-0.04f, 0.04f)), new Vector3(R(0.008f, 0.016f), 0.006f, R(0.006f, 0.012f)), crumb, new Vector3(0, R(0, 180), 0));
+            // fork resting across the plate
+            var fork = Group("Fork", dishes, new Vector3(0.03f, top + 0.004f, 0.02f)); fork.localEulerAngles = new Vector3(0, 35, 4);
             Box("Handle", fork, new Vector3(0, 0, -0.06f), new Vector3(0.012f, 0.003f, 0.12f), steel);
             Box("Neck", fork, new Vector3(0, 0, 0.012f), new Vector3(0.02f, 0.003f, 0.025f), steel);
             for (int k = 0; k < 4; k++) Box("Tine", fork, new Vector3(-0.0075f + k * 0.005f, 0, 0.04f), new Vector3(0.0025f, 0.003f, 0.035f), steel);
             // bowl with dried residue and a spoon left in it
-            var bowl = Group("Bowl", dishes, new Vector3(0.26f, 0, 0.12f));
-            Prim(PrimitiveType.Cylinder, "Base", bowl, new Vector3(0, 0.008f, 0), new Vector3(0.07f, 0.008f, 0.07f), plate);
-            Prim(PrimitiveType.Cylinder, "Lower", bowl, new Vector3(0, 0.025f, 0), new Vector3(0.11f, 0.012f, 0.11f), plate);
-            Prim(PrimitiveType.Cylinder, "Upper", bowl, new Vector3(0, 0.048f, 0), new Vector3(0.15f, 0.014f, 0.15f), plate);
-            Prim(PrimitiveType.Cylinder, "Inside", bowl, new Vector3(0, 0.0625f, 0), new Vector3(0.13f, 0.0015f, 0.13f), Mat("Bowl Residue", null, new Color(0.62f, 0.42f, 0.24f), Vector2.one, null, 0.3f));
-            var spoon = Group("Spoon", bowl, new Vector3(0.02f, 0.064f, 0.0f)); spoon.localEulerAngles = new Vector3(0, -50, -18);
+            var bowl = Group("Bowl", dishes, new Vector3(0.24f, 0, 0.12f));
+            Model("Bowl", bowl, Vector3.zero, 0, "Props/bowl", plate);
+            Prim(PrimitiveType.Cylinder, "Residue", bowl, new Vector3(0, 0.0125f, 0), new Vector3(0.075f, 0.0015f, 0.075f), Mat("Bowl Residue", null, new Color(0.62f, 0.42f, 0.24f), Vector2.one, null, 0.3f));
+            var spoon = Group("Spoon", bowl, new Vector3(0.0f, 0.03f, 0.0f)); spoon.localEulerAngles = new Vector3(0, -50, -30);
             Prim(PrimitiveType.Sphere, "Bowl of Spoon", spoon, Vector3.zero, new Vector3(0.035f, 0.008f, 0.05f), steel);
-            Box("Handle", spoon, new Vector3(0, 0.004f, -0.08f), new Vector3(0.01f, 0.003f, 0.12f), steel, new Vector3(-6, 0, 0));
+            Box("Handle", spoon, new Vector3(0, 0, -0.085f), new Vector3(0.01f, 0.003f, 0.12f), steel);
 
             // --- more perfume on the vanity
             var vanity = new Vector3(-HX + 0.23f, 0.76f, -0.6f);
@@ -1309,6 +1297,20 @@ namespace PinkBackrooms.EditorTools
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterial = mat;
             r.shadowCastingMode = ShadowCastingMode.On;
+            return go;
+        }
+
+        static GameObject Model(string name, Transform parent, Vector3 localPos, float yaw, string relPath, Material mat)
+        {
+            var path = Root + "/Models/" + relPath + ".obj";
+            var m = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Mesh>().FirstOrDefault();
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localEulerAngles = new Vector3(0, yaw, 0);
+            if (!m) { Debug.LogWarning("[My Ana] Missing model: " + path); return go; }
+            go.AddComponent<MeshFilter>().sharedMesh = m;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             return go;
         }
 
