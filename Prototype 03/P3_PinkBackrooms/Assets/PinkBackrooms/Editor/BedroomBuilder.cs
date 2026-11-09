@@ -93,7 +93,7 @@ namespace PinkBackrooms.EditorTools
             rot.showAudio.playOnAwake = false; rot.showAudio.Stop(); rot.showAudio.minDistance = 0.6f;
             rot.messBatches = MessComesBack(props);
 
-            OnlyTheseCanBeUsed(props, "hit the pen", "hit the j", "step on the walking pad", "step on the scale", "lie down", "look in the mirror");
+            OnlyTheseCanBeUsed(props, "hit the pen", "hit the J", "step on the walking pad", "step on the scale", "lie down", "look in the mirror");
 
             var hud = BuildHUD(out var canvas);
             var player = Player(hud, canvas, out var interactor);
@@ -1045,7 +1045,7 @@ namespace PinkBackrooms.EditorTools
             Prim(PrimitiveType.Sphere, "Cherry", j, new Vector3(0.084f, 0, 0), Vector3.one * 0.007f, Mat("Cherry", null, Color.black, Vector2.one, new Color(1f, 0.35f, 0.1f) * 2.5f));
             var cherry = Point(lights, "Cherry Glow", j.TransformPoint(new Vector3(0.084f, 0.02f, 0)), new Color(1f, 0.45f, 0.15f), 0.04f, 0.3f, false);
             Smoke(j, new Vector3(0.084f, 0.005f, 0));
-            var jIt = Interact(j, "hit the j", true, 0.06f);
+            var jIt = Interact(j, "hit the J", true, 0.06f);
             var jHit = j.gameObject.AddComponent<SmokeHit>();
             jHit.inhale = Clip("hit_j.wav"); jHit.cough = Clip("cough.wav"); jHit.glow = cherry; jHit.glowBoost = 14f;
             UnityEventTools.AddPersistentListener(jIt.onInteract, jHit.Hit);

@@ -79,6 +79,7 @@ namespace PinkBackrooms
             StartCoroutine(Knocks());
 
             // she gets up when you do something (any key, a click, moving the mouse a lot)
+            hud.SetPrompt("Press [E] to get up");
             float waited = 0, mouse = 0;
             while (waited < getUpAnyway)
             {
@@ -95,6 +96,7 @@ namespace PinkBackrooms
                 }
                 yield return null;
             }
+            hud.SetPrompt("");
             yield return GetUp();
         }
 

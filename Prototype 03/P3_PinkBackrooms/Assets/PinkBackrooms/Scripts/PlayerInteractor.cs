@@ -44,7 +44,8 @@ namespace PinkBackrooms
             if (cam == null) cam = Camera.main;
             if (hud == null) return;
 
-            _current = inputEnabled && cam != null ? Pick() : null;
+            if (!inputEnabled) { _current = null; return; }   // a ritual is running and shows its own prompt
+            _current = cam != null ? Pick() : null;
 
             hud.SetPrompt(_current != null ? "Press [E] to " + _current.verb : "");
 

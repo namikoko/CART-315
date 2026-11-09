@@ -45,6 +45,7 @@ namespace PinkBackrooms
             }
 
             yield return null; // don't let the same E press take you straight off
+            d.hud.SetPrompt("Press [E] to step off");
             float walk = 0, nextStep = 0; int foot = 0;
             if (d.mood) d.mood.dimTarget = 0.85f;
             while (!BedroomDirector.LeavePressed() && !d.IsEnding)
@@ -71,6 +72,7 @@ namespace PinkBackrooms
             }
 
             // step off to the left side
+            d.hud.SetPrompt("");
             if (d.mood) d.mood.dimTarget = 0f;
             if (belt) belt.speed = _beltIdle;
             if (motor) motor.pitch = _motorPitch;

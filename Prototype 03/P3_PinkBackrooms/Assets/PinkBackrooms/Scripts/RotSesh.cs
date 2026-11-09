@@ -77,6 +77,7 @@ namespace PinkBackrooms
             int f = Random.Range(0, Mathf.Max(1, showFrames.Length));
             float cut = 0;
             yield return null; // don't let the same E press get you straight up
+            d.hud.SetPrompt("Press [E] to get up");
             while (!BedroomDirector.LeavePressed() && !d.IsEnding)
             {
                 cut -= Time.deltaTime;
@@ -96,6 +97,7 @@ namespace PinkBackrooms
             }
 
             // getting up: it's later than it was, and the room has gotten worse
+            d.hud.SetPrompt("");
             if (showAudio) showAudio.Stop();
             yield return d.hud.Fade(new Color(0, 0, 0, 0), Color.black, 1.4f);
             SetScreen(idleScreen);
