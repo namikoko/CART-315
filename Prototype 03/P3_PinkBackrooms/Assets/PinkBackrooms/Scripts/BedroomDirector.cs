@@ -39,6 +39,8 @@ namespace PinkBackrooms
         public AudioSource[] ambienceToSilence = new AudioSource[0];
         [Tooltip("Faint anxious heartbeat under everything; it races during the ending.")]
         public AudioSource heartbeat;
+        [Tooltip("Resting heartbeat volume. Louder when the speaker is off, quieter while she sleeps.")]
+        public float heartbeatBase = 0.16f;
 
         [Header("Ending")]
         [TextArea(1, 2)] public string[] endingLines = { "it lets you go.", "for now." };
@@ -50,12 +52,17 @@ namespace PinkBackrooms
         private Vector3 _start;
         private int _stage;
         private bool _ending;
+        private float _spike;
+        private readonly List<Behaviour> _frozen = new List<Behaviour>();
+
+        public Vector3 StartPosition { get; private set; }
+        public Quaternion StartRotation { get; private set; }
 
         private void Awake() { Instance = this; }
 
         private IEnumerator Start()
         {
-            if (player) _start = player.position;
+            if (player) { _start = player.position; StartPosition = player.position; StartRotation = player.rotation; }
             hud.SetObjective("");
             if (hud.fader) hud.fader.color = Color.black;
             yield return new WaitForSeconds(1.0f);
@@ -66,6 +73,12 @@ namespace PinkBackrooms
 
         private void Update()
         {
+            if (heartbeat && !_ending)
+            {
+                _spike = Mathf.MoveTowards(_spike, 0, Time.deltaTime * 0.22f);
+                heartbeat.volume = Mathf.Lerp(heartbeat.volume, heartbeatBase + _spike * 0.55f, Time.deltaTime * 3f);
+                heartbeat.pitch = Mathf.Lerp(heartbeat.pitch, 1f + _spike * 0.5f, Time.deltaTime * 2f);
+            }
             if (_stage == 0 && player)
             {
                 var d = player.position - _start; d.y = 0;
@@ -123,6 +136,90 @@ namespace PinkBackrooms
                 yield return new WaitForSeconds(Random.Range(knockInterval.x, knockInterval.y));
             }
         }
+
+        // ---------------------------------------------------------------- shared helpers for the room's rituals
+
+        /// Pushes the heartbeat up (0..1). It eases back down on its own over a few seconds.
+        public void HeartSpike(float amount = 1f) { _spike = Mathf.Max(_spike, amount); }
+
+        public void SetHeartbeatBase(float v) { heartbeatBase = v; }
+
+        /// Cuts every ambient sound that is playing right now, leaving only the heartbeat. Returns what was cut.
+        public List<AudioSource> Hush()
+        {
+            var cut = new List<AudioSource>();
+            foreach (var a in ambienceToSilence)
+                if (a && a.isPlaying) { a.Pause(); cut.Add(a); }
+            return cut;
+        }
+
+        public void Unhush(List<AudioSource> cut)
+        {
+            if (_ending || cut == null) return;
+            foreach (var a in cut) if (a) a.UnPause();
+        }
+
+        /// Takes control away from the player (movement, looking, [E]) or gives it back.
+        public void FreezePlayer(bool freeze)
+        {
+            if (interactor) interactor.inputEnabled = !freeze;
+            if (freeze)
+            {
+                _frozen.Clear();
+                foreach (var mb in player.GetComponents<MonoBehaviour>())
+                    if (mb.enabled && mb.GetType().Namespace == "Cart315.FirstPerson") { mb.enabled = false; _frozen.Add(mb); }
+                hud.SetPrompt("");
+            }
+            else if (!_ending)
+            {
+                foreach (var b in _frozen) if (b) b.enabled = true;
+                _frozen.Clear();
+            }
+        }
+
+        /// Moves the player without fighting the CharacterController.
+        public void Teleport(Vector3 pos, Quaternion? rot = null)
+        {
+            var cc = player.GetComponent<CharacterController>();
+            if (cc) cc.enabled = false;
+            player.position = pos;
+            if (cc) cc.enabled = true;
+            if (rot.HasValue) SetLook(rot.Value.eulerAngles.y, 0f);
+        }
+
+        // The template's controller keeps its own look angles, so turning the head from a script has to update them too.
+        private Component _fp;
+        private System.Reflection.FieldInfo _lookField, _holderField;
+
+        private bool FindLook()
+        {
+            if (_fp && _lookField != null) return true;
+            foreach (var mb in player.GetComponents<MonoBehaviour>())
+                if (mb.GetType().Name == "FPController") _fp = mb;
+            if (!_fp) return false;
+            const System.Reflection.BindingFlags F = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            _lookField = _fp.GetType().GetField("_lookDirection", F);
+            _holderField = _fp.GetType().GetField("_cameraHolderTransform", F);
+            return _lookField != null;
+        }
+
+        /// yaw in degrees around Y; pitch in degrees, negative looks down.
+        public Vector2 GetLook()
+        {
+            if (!FindLook()) return new Vector2(player.eulerAngles.y, 0);
+            return (Vector2)_lookField.GetValue(_fp);
+        }
+
+        public void SetLook(float yaw, float pitch)
+        {
+            player.rotation = Quaternion.Euler(0, yaw, 0);
+            if (!FindLook()) return;
+            _lookField.SetValue(_fp, new Vector2(yaw, pitch));
+            var holder = _holderField != null ? _holderField.GetValue(_fp) as Transform : null;
+            if (holder) holder.localRotation = Quaternion.Euler(-pitch, 0, 0);
+        }
+
+        public bool IsEnding => _ending;
 
         public void BeginEnding()
         {
