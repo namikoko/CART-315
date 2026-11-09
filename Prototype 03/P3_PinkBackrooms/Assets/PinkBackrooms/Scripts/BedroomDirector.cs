@@ -37,10 +37,12 @@ namespace PinkBackrooms
         public AudioClip[] knocks = new AudioClip[0];
         public Vector2 knockInterval = new Vector2(30, 70);
         public AudioSource[] ambienceToSilence = new AudioSource[0];
+        [Tooltip("Faint anxious heartbeat under everything; it races during the ending.")]
+        public AudioSource heartbeat;
 
         [Header("Ending")]
         [TextArea(1, 2)] public string[] endingLines = { "it lets you go.", "for now." };
-        public string endTitle = "PINK BACKROOMS\n\npart one: the room";
+        public string endTitle = "MY ANA\n\npart one: the room";
 
         public bool MirrorAwake { get; private set; }
 
@@ -158,12 +160,14 @@ namespace PinkBackrooms
                 if (color) color.postExposure.Override(Mathf.Lerp(0f, 2.5f, k * k));
                 if (glass) glass.SetColor("_EmissionColor", mirrorGlow * Mathf.Lerp(0.25f, 6f, k));
                 foreach (var a in ambienceToSilence) if (a) a.volume *= 0.97f;
+                if (heartbeat) { heartbeat.pitch = Mathf.Lerp(1f, 1.7f, k); heartbeat.volume = Mathf.Lerp(heartbeat.volume, 0.6f, 0.03f); }
                 yield return null;
             }
 
             yield return hud.Fade(new Color(1f, 0.85f, 0.9f, 0f), new Color(1f, 0.85f, 0.9f, 1f), 0.6f);
             yield return hud.Fade(new Color(1f, 0.85f, 0.9f, 1f), Color.black, 1.5f);
             foreach (var a in ambienceToSilence) if (a) a.Stop();
+            if (heartbeat) heartbeat.Stop();
 
             foreach (var l in endingLines)
             {

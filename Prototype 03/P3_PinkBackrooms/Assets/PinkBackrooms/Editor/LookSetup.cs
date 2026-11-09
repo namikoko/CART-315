@@ -13,9 +13,10 @@ namespace PinkBackrooms.EditorTools
         public const string Root = "Assets/PinkBackrooms";
         public const string ProfilePath = Root + "/Settings/PinkBackroomsLook.asset";
 
-        [MenuItem("Pink Backrooms/1. Apply Look Settings", priority = 1)]
+        [MenuItem("My Ana/1. Apply Look Settings", priority = 1)]
         public static void ApplyAll()
         {
+            PlayerSettings.productName = "My Ana";
             ImportTextures();
             ConfigurePipelineAssets();
             CreateOrUpdateProfile();
