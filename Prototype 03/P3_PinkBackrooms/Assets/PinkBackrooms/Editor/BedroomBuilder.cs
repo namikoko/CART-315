@@ -432,27 +432,46 @@ namespace PinkBackrooms.EditorTools
 
             MeasuringTape(props, v);
 
-            // mirror on the wall above, with hollywood bulbs that mostly don't work
+            // hollywood vanity mirror on the wall just above the desk: a wide flat frame with round globe bulbs
+            // sitting in chrome sockets, evenly spaced and centred on the frame border all the way around.
+            const float FW = 0.92f, FH = 1.0f, CY = 1.36f, Border = 0.13f;   // frame bottom sits ~10 cm above the desktop
             var m = Group("Mirror", props, new Vector3(-HX + 0.02f, 0, -0.6f));
             m.localEulerAngles = new Vector3(0, -90, 0);
-            Box("Frame", m, new Vector3(0, 1.52f, 0), new Vector3(0.78f, 0.9f, 0.03f), white);
-            var glassGo = Quad("Mirror Glass", m, new Vector3(0, 1.52f, -0.017f), new Vector2(0.62f, 0.72f),
+            Box("Frame", m, new Vector3(0, CY, 0), new Vector3(FW, FH, 0.035f), white);
+            float gw = FW - 2 * Border, gh = FH - 2 * Border;
+            var glassGo = Quad("Mirror Glass", m, new Vector3(0, CY, -0.019f), new Vector2(gw, gh),
                 Mat("Mirror Glass", null, new Color(0.16f, 0.12f, 0.14f), Vector2.one, Color.black, 0.95f, metallic: 0.9f, reflections: true), Vector3.zero);
             mirrorGlass = glassGo.GetComponent<Renderer>();
-            var bulbMat = Mat("Vanity Bulb", null, new Color(1f, 0.9f, 0.9f), Vector2.one, new Color(1f, 0.7f, 0.8f) * 2f);
-            var bulbs = new List<Renderer>();
-            for (int i = 0; i < 5; i++) bulbs.Add(Prim(PrimitiveType.Sphere, "Bulb", m, new Vector3(-0.3f + i * 0.15f, 1.98f, -0.03f), Vector3.one * 0.055f, bulbMat).GetComponent<Renderer>());
-            for (int i = 0; i < 3; i++)
-            {
-                bulbs.Add(Prim(PrimitiveType.Sphere, "Bulb", m, new Vector3(-0.41f, 1.25f + i * 0.25f, -0.03f), Vector3.one * 0.055f, bulbMat).GetComponent<Renderer>());
-                bulbs.Add(Prim(PrimitiveType.Sphere, "Bulb", m, new Vector3(0.41f, 1.25f + i * 0.25f, -0.03f), Vector3.one * 0.055f, bulbMat).GetComponent<Renderer>());
-            }
-            // old photos tucked into the frame
-            var photo = Mat("Photo", "photo", Color.white, Vector2.one, doubleSided: true);
-            Quad("Photo", m, new Vector3(-0.25f, 1.78f, -0.02f), new Vector2(0.1f, 0.13f), photo, new Vector3(0, 0, 12));
-            Quad("Photo", m, new Vector3(0.27f, 1.3f, -0.02f), new Vector2(0.1f, 0.13f), photo, new Vector3(0, 0, -8));
+            // thin raised lip around the glass
+            Box("Lip", m, new Vector3(0, CY + gh / 2 + 0.006f, -0.02f), new Vector3(gw + 0.024f, 0.012f, 0.01f), white);
+            Box("Lip", m, new Vector3(0, CY - gh / 2 - 0.006f, -0.02f), new Vector3(gw + 0.024f, 0.012f, 0.01f), white);
+            Box("Lip", m, new Vector3(-gw / 2 - 0.006f, CY, -0.02f), new Vector3(0.012f, gh, 0.01f), white);
+            Box("Lip", m, new Vector3(gw / 2 + 0.006f, CY, -0.02f), new Vector3(0.012f, gh, 0.01f), white);
 
-            var ml = Point(lights, "Vanity Bulbs", m.TransformPoint(new Vector3(0, 1.55f, -0.4f)), new Color(1f, 0.6f, 0.72f), 0.9f, 3.2f, true);
+            var bulbMat = Mat("Vanity Bulb", null, new Color(1f, 0.9f, 0.9f), Vector2.one, new Color(1f, 0.7f, 0.8f) * 2f);
+            var deadMat = Mat("Vanity Bulb Dead", null, new Color(0.45f, 0.4f, 0.42f), Vector2.one, null, 0.85f);
+            var chrome = Mat("Chrome", null, new Color(0.75f, 0.74f, 0.76f), Vector2.one, null, 0.85f, metallic: 1f);
+            var bulbs = new List<Renderer>();
+            float bx = FW / 2 - Border / 2, by = FH / 2 - Border / 2;   // bulb centre line runs down the middle of the border
+            var spots = new List<Vector2>();
+            for (int i = 0; i < 5; i++) { float x = Mathf.Lerp(-bx, bx, i / 4f); spots.Add(new Vector2(x, by)); spots.Add(new Vector2(x, -by)); }
+            for (int i = 1; i < 4; i++) { float y = Mathf.Lerp(-by, by, i / 4f); spots.Add(new Vector2(-bx, y)); spots.Add(new Vector2(bx, y)); }
+            int n = 0;
+            foreach (var sp in spots)
+            {
+                var p = new Vector3(sp.x, CY + sp.y, 0);
+                Prim(PrimitiveType.Cylinder, "Socket", m, p + new Vector3(0, 0, -0.023f), new Vector3(0.045f, 0.006f, 0.045f), chrome, new Vector3(90, 0, 0), castShadows: false);
+                bool dead = n == 3 || n == 10 || n == 13;   // a few burnt out for good
+                var bulb = Prim(PrimitiveType.Sphere, "Bulb", m, p + new Vector3(0, 0, -0.058f), Vector3.one * 0.062f, dead ? deadMat : bulbMat, castShadows: false);
+                if (!dead) bulbs.Add(bulb.GetComponent<Renderer>());
+                n++;
+            }
+            // old photos tucked into the corners of the glass
+            var photo = Mat("Photo", "photo", Color.white, Vector2.one, doubleSided: true);
+            Quad("Photo", m, new Vector3(-gw / 2 + 0.06f, CY + gh / 2 - 0.08f, -0.022f), new Vector2(0.1f, 0.13f), photo, new Vector3(0, 0, 10));
+            Quad("Photo", m, new Vector3(gw / 2 - 0.06f, CY - gh / 2 + 0.09f, -0.022f), new Vector2(0.1f, 0.13f), photo, new Vector3(0, 0, -7));
+
+            var ml = Point(lights, "Vanity Bulbs", m.TransformPoint(new Vector3(0, CY, -0.4f)), new Color(1f, 0.6f, 0.72f), 0.9f, 3.2f, true);
             mirrorLights = m.gameObject.AddComponent<FlickerLight>();
             mirrorLights.lights = new[] { ml }; mirrorLights.bulbs = bulbs.ToArray();
             mirrorLights.bulbColor = new Color(1f, 0.7f, 0.8f) * 2f;
