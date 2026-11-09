@@ -397,11 +397,12 @@ namespace PinkBackrooms.EditorTools
                 for (int i = 0; i < 3; i++)
                 {
                     Box("Drawer Line", v, new Vector3(x, 0.17f + i * 0.2f, -0.216f), new Vector3(0.22f, 0.008f, 0.004f), line);
-                    Prim(PrimitiveType.Sphere, "Pull", v, new Vector3(x, 0.27f + i * 0.2f, -0.225f), Vector3.one * 0.022f, brass);
+                    if (!(x > 0 && i == 1)) // that drawer is pulled open below
+                        Prim(PrimitiveType.Sphere, "Pull", v, new Vector3(x, 0.27f + i * 0.2f, -0.225f), Vector3.one * 0.022f, brass);
                 }
             }
             // a drawer left hanging open
-            Box("Open Drawer", v, new Vector3(0.42f, 0.5f, -0.33f), new Vector3(0.22f, 0.1f, 0.3f), white);
+            OpenDrawer(v, white, brass);
 
             Makeup(v, ambience);
 
@@ -454,6 +455,34 @@ namespace PinkBackrooms.EditorTools
             it.requiresMirrorAwake = true;
             it.lockedLine = "not yet. i check every angle every day. not yet.";
             it.triggersEnding = true;
+        }
+
+        /// A drawer pulled half out of the right pedestal: a real hollow tray with things spilling inside.
+        static void OpenDrawer(Transform v, Material white, Material brass)
+        {
+            var d = Group("Open Drawer", v, new Vector3(0.42f, 0.47f, -0.3f));
+            var inside = Mat("Drawer Inside", "paint_white", new Color(0.78f, 0.7f, 0.72f), Vector2.one);
+            var dark = Mat("Drawer Gap", null, new Color(0.02f, 0.015f, 0.02f), Vector2.one);
+            // dark opening left in the pedestal where the drawer came out
+            Box("Gap", v, new Vector3(0.42f, 0.47f, -0.212f), new Vector3(0.21f, 0.13f, 0.006f), dark);
+            Box("Bottom", d, new Vector3(0, -0.055f, 0), new Vector3(0.21f, 0.01f, 0.36f), inside);
+            Box("Side L", d, new Vector3(-0.1f, -0.005f, 0), new Vector3(0.01f, 0.1f, 0.36f), inside);
+            Box("Side R", d, new Vector3(0.1f, -0.005f, 0), new Vector3(0.01f, 0.1f, 0.36f), inside);
+            Box("Back", d, new Vector3(0, -0.005f, 0.175f), new Vector3(0.21f, 0.1f, 0.01f), inside);
+            Box("Front", d, new Vector3(0, 0, -0.185f), new Vector3(0.24f, 0.14f, 0.018f), white, collider: true);
+            Prim(PrimitiveType.Sphere, "Pull", d, new Vector3(0, 0.01f, -0.2f), Vector3.one * 0.022f, brass);
+            // what's inside: makeup thrown in, a scrunchie, cotton pads, a hair tie, receipts
+            var lip = Mat("Lipstick 0", null, new Color(0.8f, 0.2f, 0.35f), Vector2.one, null, 0.5f);
+            var lip2 = Mat("Lipstick 3", null, new Color(0.85f, 0.6f, 0.55f), Vector2.one, null, 0.5f);
+            Prim(PrimitiveType.Cylinder, "Lipstick", d, new Vector3(-0.05f, -0.04f, -0.08f), new Vector3(0.022f, 0.035f, 0.022f), lip, new Vector3(0, 30, 90));
+            Prim(PrimitiveType.Cylinder, "Lipstick", d, new Vector3(0.04f, -0.04f, 0.02f), new Vector3(0.022f, 0.035f, 0.022f), lip2, new Vector3(0, -50, 90));
+            Prim(PrimitiveType.Sphere, "Scrunchie", d, new Vector3(0.03f, -0.035f, -0.1f), new Vector3(0.07f, 0.03f, 0.07f), Mat("Scrunchie", "fabric_pink_knit", Color.white, Vector2.one));
+            var pad = Mat("Cotton", "fabric_white", Color.white, Vector2.one);
+            for (int i = 0; i < 3; i++)
+                Prim(PrimitiveType.Cylinder, "Cotton Pad", d, new Vector3(-0.04f + i * 0.015f, -0.048f + i * 0.004f, 0.09f), new Vector3(0.05f, 0.003f, 0.05f), pad, new Vector3(i * 8, 0, i * 6));
+            Box("Receipt", d, new Vector3(-0.02f, -0.045f, 0.12f), new Vector3(0.06f, 0.002f, 0.12f), pad, new Vector3(10, 25, 0));
+            Prim(PrimitiveType.Cylinder, "Compact", d, new Vector3(0.05f, -0.045f, 0.1f), new Vector3(0.07f, 0.008f, 0.07f), Mat("Compact", null, new Color(0.95f, 0.75f, 0.82f), Vector2.one, null, 0.6f), new Vector3(8, 0, 0));
+            Box("Eyeliner", d, new Vector3(-0.03f, -0.044f, -0.02f), new Vector3(0.01f, 0.01f, 0.12f), Mat("Brush Handle", null, new Color(0.1f, 0.08f, 0.09f), Vector2.one), new Vector3(0, 40, 0));
         }
 
         static void Makeup(Transform v, List<AudioSource> ambience)
@@ -800,8 +829,21 @@ namespace PinkBackrooms.EditorTools
             const float standTop = 0.56f;
 
             // --- period stain on the bare part of the mattress
-            Decal("Period Stain", g, new Vector3(-0.15f, 0.583f, 0.5f), new Vector3(90, 25, 0), 0.32f,
-                Mat("Stain Blood", "stain_blood", Color.white, Vector2.one, clip: true, doubleSided: true));
+            var blood = Mat("Stain Blood", "stain_blood", Color.white, Vector2.one, clip: true, doubleSided: true);
+            var bloodOld = Mat("Stain Blood Old", "stain_blood_old", Color.white, Vector2.one, clip: true, doubleSided: true);
+            var bloodFaded = Mat("Stain Blood Faded", "stain_blood_old", new Color(1.05f, 0.95f, 0.88f), Vector2.one, clip: true, doubleSided: true);
+            Vector3 bed = new Vector3(-0.5f, 0, 1.15f);
+            void Stain(string n, Vector3 local, float yaw, float w, float h, Material m, float y = 0.583f)
+                => Quad(n, g, bed + new Vector3(local.x, y, local.z), new Vector2(w, h), m, new Vector3(90, yaw, 0));
+            // on the bare mattress: one recent, older ones around it that never washed out
+            Stain("Period Stain", new Vector3(0.33f, 0, -0.62f), 25, 0.42f, 0.34f, blood);
+            Stain("Period Stain (old)", new Vector3(0.02f, 0, -0.38f), 140, 0.36f, 0.3f, bloodOld);
+            Stain("Period Stain (old)", new Vector3(0.58f, 0, -0.84f), 80, 0.5f, 0.38f, bloodFaded);
+            Stain("Period Stain (faded)", new Vector3(-0.06f, 0, -0.82f), 200, 0.3f, 0.26f, bloodFaded);
+            Stain("Period Stain (old)", new Vector3(-0.45f, 0, 0.62f), 300, 0.38f, 0.3f, bloodOld);
+            // and soaked through onto the sheet
+            Stain("Period Stain (sheet)", new Vector3(0.22f, 0, -0.04f), 60, 0.34f, 0.28f, blood, 0.597f);
+            Stain("Period Stain (sheet, old)", new Vector3(0.52f, 0, 0.32f), 170, 0.28f, 0.22f, bloodOld, 0.597f);
 
             // --- macbook open on the bed, the only screen in the room
             var mac = Group("Laptop", g, new Vector3(-0.2f, 0.6f, 1.65f));
