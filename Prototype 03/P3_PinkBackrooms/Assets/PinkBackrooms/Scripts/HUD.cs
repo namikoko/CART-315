@@ -46,7 +46,7 @@ namespace PinkBackrooms
             if (crosshair)
             {
                 crosshair.rectTransform.sizeDelta = Vector2.one * (usable ? 7f : 3f);
-                crosshair.color = usable ? new Color(1f, 0.75f, 0.88f, 0.9f) : new Color(1, 1, 1, 0.55f);
+                crosshair.color = usable ? new Color(1f, 0.45f, 0.7f, 1f) : new Color(1f, 0.55f, 0.75f, 0.75f);
             }
             if (prompt && prompt.text != s) prompt.text = s;   // the one line of text that stays: how to use things
         }

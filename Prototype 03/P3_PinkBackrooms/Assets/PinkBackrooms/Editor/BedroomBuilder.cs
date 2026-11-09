@@ -110,7 +110,7 @@ namespace PinkBackrooms.EditorTools
             dir.sfx = dirGo.AddComponent<AudioSource>();
             dir.sfx.playOnAwake = false;
             dir.mirrorWakeSound = Clip("thud.wav");
-            dir.glitchSound = Clip("glitch.wav");
+            dir.glitchSound = Clip("mirror_pull.wav");   // a low pull and pressure, no glitch noises
             dir.knockSource = knockSource;
             dir.knocks = new[] { Clip("knock_01.wav"), Clip("knock_02.wav"), Clip("knock_03.wav") };
             dir.ambienceToSilence = ambience.ToArray();
@@ -1369,7 +1369,7 @@ namespace PinkBackrooms.EditorTools
             var dot = new GameObject("Crosshair", typeof(RectTransform), typeof(Image));
             dot.transform.SetParent(go.transform, false);
             var drt = (RectTransform)dot.transform; drt.sizeDelta = new Vector2(3, 3);
-            var img = dot.GetComponent<Image>(); img.color = new Color(1, 1, 1, 0.55f); img.raycastTarget = false;
+            var img = dot.GetComponent<Image>(); img.color = new Color(1f, 0.55f, 0.75f, 0.75f); img.raycastTarget = false;
             hud.crosshair = img;
 
             var fade = new GameObject("Fader", typeof(RectTransform), typeof(Image));

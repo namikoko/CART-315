@@ -96,18 +96,37 @@ namespace PinkBackrooms
                 yield return null;
             }
 
-            // getting up: it's later than it was, and the room has gotten worse
+            // getting up, just getting up. Behind her back the room has gotten worse.
             d.hud.SetPrompt("");
             if (showAudio) showAudio.Stop();
-            yield return d.hud.Fade(new Color(0, 0, 0, 0), Color.black, 1.4f);
             SetScreen(idleScreen);
             if (_screenMat) _screenMat.SetColor(EmissionColor, _idleEmission);
             if (screenLight) { screenLight.color = _lightColor; screenLight.intensity = _lightIntensity; }
             if (Seshes < messBatches.Length && messBatches[Seshes]) messBatches[Seshes].SetActive(true);
             Seshes++;
-            d.StandAt(d.StandPosition, d.StandRotation.eulerAngles.y);
-            yield return new WaitForSeconds(1.2f);
-            yield return d.hud.Fade(Color.black, new Color(0, 0, 0, 0), 2.2f);
+            if (rustle) AudioSource.PlayClipAtPoint(rustle, transform.position + Vector3.up * 0.6f, 0.5f);
+
+            // push up off the bed, then step down beside it
+            Vector2 la = d.GetLook(); Vector3 ea = d.EyeNow();
+            Vector3 feet = d.StandPosition; float standYaw = d.StandRotation.eulerAngles.y;
+            Vector3 eStand = feet + Quaternion.Euler(0, standYaw, 0) * d.EyeOffset;
+            Vector3 kneel = new Vector3(Mathf.Lerp(ea.x, eStand.x, 0.35f), ea.y + 0.3f, Mathf.Lerp(ea.z, eStand.z, 0.35f));
+            for (float t = 0; t < 1.0f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0, 1, t / 1.0f);
+                d.PlaceEye(Vector3.Lerp(ea, kneel, k), Mathf.LerpAngle(la.x, la.x + Mathf.DeltaAngle(la.x, standYaw) * 0.5f, k), Mathf.Lerp(la.y, -10f, k));
+                yield return null;
+            }
+            Vector2 lb = d.GetLook();
+            for (float t = 0; t < 1.3f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0, 1, t / 1.3f);
+                Vector3 p = Vector3.Lerp(kneel, eStand, k);
+                p.y = Mathf.Lerp(kneel.y, eStand.y, Mathf.SmoothStep(0, 1, Mathf.Clamp01(k * 1.5f - 0.3f)));
+                d.PlaceEye(p, Mathf.LerpAngle(lb.x, standYaw, k), Mathf.Lerp(lb.y, 0f, k));
+                yield return null;
+            }
+            d.StandAt(feet, standYaw);
             d.FreezePlayer(false);
             _busy = false;
         }
