@@ -80,10 +80,20 @@ namespace PinkBackrooms.EditorTools
             Chandelier(props, lights, ambience);
             Decor(room);
 
-            // lying down: the speaker she falls asleep to, and the mess that comes back each night
-            var sleep = Object.FindFirstObjectByType<BedSleep>();
-            sleep.speaker = Object.FindFirstObjectByType<SpeakerToggle>();
-            sleep.messBatches = MessComesBack(props);
+            // the rot sesh: the laptop on the bed plays the show, and the room is worse every time she gets up
+            var rot = Object.FindFirstObjectByType<RotSesh>();
+            var laptop = props.GetComponentsInChildren<Transform>(true).First(t => t.name == "Laptop");
+            rot.screen = laptop.GetComponentsInChildren<Renderer>(true).First(r => r.name == "Screen");
+            rot.idleScreen = Tex("laptop_screen");
+            rot.showFrames = Enumerable.Range(0, 6).Select(i => Tex("show_" + i)).ToArray();
+            rot.frameLight = new[] { new Color(0.62f, 0.82f, 0.87f), new Color(0.78f, 0.76f, 0.67f), new Color(0.92f, 0.56f, 0.52f),
+                                     new Color(0.6f, 0.4f, 0.45f), new Color(0.75f, 0.42f, 0.36f), new Color(0.52f, 0.82f, 0.84f) };
+            rot.screenLight = lights.GetComponentsInChildren<Light>(true).First(l => l.name == "Laptop Glow");
+            rot.showAudio = Audio(laptop, "Show (laptop speakers)", Vector3.up * 0.1f, "show_audio.wav", 0.5f, true, true, 5f);
+            rot.showAudio.playOnAwake = false; rot.showAudio.Stop(); rot.showAudio.minDistance = 0.6f;
+            rot.messBatches = MessComesBack(props);
+
+            OnlyTheseCanBeUsed(props, "hit the pen", "hit the j", "step on the walking pad", "step on the scale", "lie down", "look in the mirror");
 
             var hud = BuildHUD(out var canvas);
             var player = Player(hud, canvas, out var interactor);
@@ -105,6 +115,18 @@ namespace PinkBackrooms.EditorTools
             dir.knocks = new[] { Clip("knock_01.wav"), Clip("knock_02.wav"), Clip("knock_03.wav") };
             dir.ambienceToSilence = ambience.ToArray();
             dir.heartbeat = Audio(dirGo.transform, "Heartbeat", Vector3.zero, "heartbeat.wav", 0.16f, true, false);
+
+            // the high, and the room dimming on the walking pad
+            var mood = dirGo.AddComponent<RoomMood>();
+            mood.volume = volume;
+            var camT = player.GetComponentInChildren<Camera>().transform;
+            mood.cam = camT;
+            var listener = player.GetComponentInChildren<AudioListener>();
+            mood.earMuffle = (listener ? listener.gameObject : camT.gameObject).AddComponent<AudioLowPassFilter>();
+            mood.earMuffle.cutoffFrequency = 22000f;
+            dir.mood = mood;
+            var exhale = Exhale(camT);
+            foreach (var hit in Object.FindObjectsByType<SmokeHit>(FindObjectsSortMode.None)) hit.exhale = exhale;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -255,16 +277,9 @@ namespace PinkBackrooms.EditorTools
             Garment("Camisole", g, new Vector3(0.45f, 0.6f, 0.1f), 140, "cami_a", GarmentMat("fabric_lilac", Color.white));
 
             var bedIt = Interact(g, "lie down", true, 0.05f);
-            var sleep = g.gameObject.AddComponent<BedSleep>();
-            sleep.rustle = Clip("bed_rustle.wav");
-            sleep.wakeLines = new[]
-            {
-                "i slept. it's dark. it's always dark in here.",
-                "it came back. the mess always comes back.",
-                "i don't remember doing any of this.",
-                "another day. same room.",
-            };
-            UnityEventTools.AddPersistentListener(bedIt.onInteract, sleep.LieDown);
+            var rot = g.gameObject.AddComponent<RotSesh>();
+            rot.rustle = Clip("bed_rustle.wav");
+            UnityEventTools.AddPersistentListener(bedIt.onInteract, rot.LieDown);
 
             Canopy(g);
             FairyLights(g, lights);
@@ -371,23 +386,6 @@ namespace PinkBackrooms.EditorTools
             aff.minDistance = 1.0f;      // soft: you hear it properly when you're near the bed, half-heard from the door
             aff.spatialBlend = 0.75f;    // still sounds like it's coming from the nightstand, but never drops out
             ambience.Add(aff);
-            var spkIt = Interact(spk, "turn off the speaker", true, 0.1f);
-            var toggle = spk.gameObject.AddComponent<SpeakerToggle>();
-            toggle.affirmations = aff; toggle.led = pulse; toggle.interactable = spkIt;
-            toggle.click = Clip("speaker_click.wav");
-            toggle.offLines = new[]
-            {
-                "it's so quiet without it.",
-                "i can hear my heart. it's going too fast.",
-                "this is what it sounds like when it's just me.",
-            };
-            toggle.onLines = new[]
-            {
-                "okay. say it again. i'm listening.",
-                "i fall asleep to it every night. hoping it fixes me.",
-                "say it until i believe it.",
-            };
-            UnityEventTools.AddPersistentListener(spkIt.onInteract, toggle.Toggle);
             // phone charger cable trailing off the edge
             var cable = Mat("Cable", null, new Color(0.92f, 0.9f, 0.9f), Vector2.one);
             Beam("Charger Cable", right, new Vector3(0.12f, 0.565f, -0.12f), new Vector3(0.2f, 0.565f, -0.2f), 0.006f, 0.006f, cable);
@@ -542,15 +540,6 @@ namespace PinkBackrooms.EditorTools
             Box("Bottle", pf, new Vector3(0, 0.05f, 0), new Vector3(0.06f, 0.09f, 0.04f), pinkGlass);
             Prim(PrimitiveType.Cylinder, "Neck", pf, new Vector3(0, 0.1f, 0), new Vector3(0.016f, 0.008f, 0.016f), gold);
             Prim(PrimitiveType.Sphere, "Cap", pf, new Vector3(0, 0.12f, 0), Vector3.one * 0.032f, gold);
-            var pfIt = Interact(pf, "spray the perfume", true, 0.08f,
-                "i haven't showered in over a week.",
-                "so i drown myself in it.",
-                "nobody can tell. right?",
-                "more.");
-            pfIt.sound = Clip("spray.wav"); pfIt.soundVolume = 0.7f;
-            var spray = pf.gameObject.AddComponent<PerfumeSpray>();
-            spray.mist = Mist(pf, new Vector3(0, 0.12f, 0));
-            UnityEventTools.AddPersistentListener(pfIt.onInteract, spray.Spray);
             var cup = Mat("Brush Cup", null, new Color(0.95f, 0.7f, 0.8f), Vector2.one, null, 0.4f);
             Prim(PrimitiveType.Cylinder, "Brush Cup", g, new Vector3(-0.1f, top + 0.05f, 0.14f), new Vector3(0.07f, 0.05f, 0.07f), cup);
             var handle = Mat("Brush Handle", null, new Color(0.1f, 0.08f, 0.09f), Vector2.one);
@@ -604,25 +593,6 @@ namespace PinkBackrooms.EditorTools
             var it = Interact(g, "step on the scale", true, 0.35f);
             var ritual = g.gameObject.AddComponent<ScaleRitual>();
             ritual.display = sd; ritual.beep = Clip("scale_beep.wav");
-            ritual.lines = new[]
-            {
-                "don't breathe. don't look yet.",
-                "same as this morning. it should be less by now.",
-                "i went to the bathroom. i'll check again.",
-                "it went up. it's water. it's just water.",
-                "i haven't eaten since yesterday. it doesn't care.",
-                "maybe if i stand differently.",
-                "i already know. i check anyway.",
-                "i'll write it down. i write everything down.",
-            };
-            ritual.again = new[]
-            {
-                "again.",
-                "one more time. to be sure.",
-                "it's the same. check again.",
-                "just once more.",
-                "i know. again.",
-            };
             UnityEventTools.AddPersistentListener(it.onInteract, ritual.StepOn);
         }
 
@@ -641,10 +611,13 @@ namespace PinkBackrooms.EditorTools
             blink.display = disp.GetComponent<Renderer>(); blink.color = new Color(1f, 0.4f, 0.6f) * 2f; blink.blinkRate = 0.5f;
             var sb = g.gameObject.AddComponent<ScrollingBelt>();
             sb.belt = belt.GetComponent<Renderer>(); sb.speed = 0.5f;
-            ambience.Add(Audio(g, "Walking Pad Motor", new Vector3(0, 0.1f, 0.5f), "walkpad_motor.wav", 0.35f, true, true, 6f));
-            Interact(g, "look at the walking pad", true, 0.3f,
-                "i work out so much. so the scale stays down.",
-                "it never stops. so i don't either.");
+            var motor = Audio(g, "Walking Pad Motor", new Vector3(0, 0.1f, 0.5f), "walkpad_motor.wav", 0.35f, true, true, 6f);
+            ambience.Add(motor);
+            var padIt = Interact(g, "step on the walking pad", true, 0.3f);
+            var walk = g.gameObject.AddComponent<WalkingPadRitual>();
+            walk.belt = sb; walk.motor = motor;
+            walk.steps = Enumerable.Range(1, 8).Select(i => Clip($"step_wood_0{i}.wav")).ToArray();
+            UnityEventTools.AddPersistentListener(padIt.onInteract, walk.StepOn);
         }
 
         static void Weights(Transform props)
@@ -1049,7 +1022,33 @@ namespace PinkBackrooms.EditorTools
             Prim(PrimitiveType.Cylinder, "Pen Body", pen, Vector3.zero, new Vector3(0.016f, 0.05f, 0.016f), Mat("Pen Body", null, new Color(0.2f, 0.18f, 0.22f), Vector2.one, null, 0.6f, metallic: 0.5f));
             Prim(PrimitiveType.Cylinder, "Cartridge", pen, new Vector3(0, 0.065f, 0), new Vector3(0.014f, 0.016f, 0.014f), Mat("Cartridge", null, new Color(0.85f, 0.6f, 0.2f), Vector2.one, new Color(0.15f, 0.08f, 0f), 0.9f));
             Prim(PrimitiveType.Sphere, "LED", pen, new Vector3(0, -0.05f, 0), Vector3.one * 0.008f, Mat("Pen LED", null, Color.black, Vector2.one, new Color(1f, 0.3f, 0.6f) * 3f));
-            Interact(rn, "look at the weed", false, 0.1f, "it helps me sleep. it helps me not feel anything.");
+            var penGlow = Point(lights, "Pen LED Glow", pen.TransformPoint(new Vector3(0, -0.05f, 0)) + Vector3.up * 0.03f, new Color(1f, 0.35f, 0.65f), 0.05f, 0.35f, false);
+            var penIt = Interact(pen, "hit the pen", true, 0.06f);
+            var penHit = pen.gameObject.AddComponent<SmokeHit>();
+            penHit.inhale = Clip("hit_pen.wav"); penHit.cough = Clip("cough.wav"); penHit.glow = penGlow; penHit.glowBoost = 8f;
+            UnityEventTools.AddPersistentListener(penIt.onInteract, penHit.Hit);
+
+            // a half-smoked J resting in a glass ashtray beside the tray
+            var tray2 = Group("Ashtray", rn, new Vector3(-0.15f, 0, 0.08f));
+            var ashGlass = Mat("Ashtray Glass", null, new Color(0.75f, 0.8f, 0.85f), Vector2.one, null, 0.9f);
+            Prim(PrimitiveType.Cylinder, "Ashtray Base", tray2, new Vector3(0, 0.006f, 0), new Vector3(0.11f, 0.006f, 0.11f), ashGlass);
+            Prim(PrimitiveType.Cylinder, "Ashtray Rim", tray2, new Vector3(0, 0.016f, 0), new Vector3(0.115f, 0.006f, 0.115f), ashGlass);
+            Prim(PrimitiveType.Cylinder, "Ash", tray2, new Vector3(0, 0.0125f, 0), new Vector3(0.085f, 0.001f, 0.085f), Mat("Ash", null, new Color(0.35f, 0.33f, 0.33f), Vector2.one));
+            for (int k = 0; k < 3; k++)
+                Prim(PrimitiveType.Cylinder, "Roach", tray2, new Vector3(R(-0.03f, 0.03f), 0.016f, R(-0.03f, 0.03f)), new Vector3(0.008f, 0.012f, 0.008f), Mat("Roach", null, new Color(0.8f, 0.72f, 0.6f), Vector2.one), new Vector3(90, R(0, 180), 0));
+            var j = Group("J", tray2, new Vector3(0.0f, 0.024f, 0.0f)); j.localEulerAngles = new Vector3(0, 35, -6);
+            var paper = Mat("Rolling Paper", null, new Color(0.95f, 0.92f, 0.86f), Vector2.one, null, 0.2f);
+            Prim(PrimitiveType.Cylinder, "Paper", j, new Vector3(0.03f, 0, 0), new Vector3(0.011f, 0.035f, 0.011f), paper, new Vector3(0, 0, 90));
+            Prim(PrimitiveType.Cylinder, "Paper (fat end)", j, new Vector3(0.065f, 0, 0), new Vector3(0.0135f, 0.012f, 0.0135f), paper, new Vector3(0, 0, 90));
+            Prim(PrimitiveType.Cylinder, "Crutch", j, new Vector3(-0.008f, 0, 0), new Vector3(0.0105f, 0.008f, 0.0105f), Mat("Crutch", null, new Color(0.85f, 0.75f, 0.6f), Vector2.one), new Vector3(0, 0, 90));
+            Prim(PrimitiveType.Sphere, "Burnt Tip", j, new Vector3(0.078f, 0, 0), new Vector3(0.012f, 0.014f, 0.014f), Mat("Burnt Tip", null, new Color(0.15f, 0.13f, 0.13f), Vector2.one));
+            Prim(PrimitiveType.Sphere, "Cherry", j, new Vector3(0.084f, 0, 0), Vector3.one * 0.007f, Mat("Cherry", null, Color.black, Vector2.one, new Color(1f, 0.35f, 0.1f) * 2.5f));
+            var cherry = Point(lights, "Cherry Glow", j.TransformPoint(new Vector3(0.084f, 0.02f, 0)), new Color(1f, 0.45f, 0.15f), 0.04f, 0.3f, false);
+            Smoke(j, new Vector3(0.084f, 0.005f, 0));
+            var jIt = Interact(j, "hit the j", true, 0.06f);
+            var jHit = j.gameObject.AddComponent<SmokeHit>();
+            jHit.inhale = Clip("hit_j.wav"); jHit.cough = Clip("cough.wav"); jHit.glow = cherry; jHit.glowBoost = 14f;
+            UnityEventTools.AddPersistentListener(jIt.onInteract, jHit.Hit);
 
             // --- takeout cups filled with pee, and incense to cover the smell
             var cupRed = Mat("Fast Food Cup", null, new Color(0.85f, 0.2f, 0.2f), Vector2.one, null, 0.4f);
@@ -1153,33 +1152,43 @@ namespace PinkBackrooms.EditorTools
             }
         }
 
-        /// A burst of perfume mist, fired by PerfumeSpray. Sprays out toward the room.
-        static ParticleSystem Mist(Transform parent, Vector3 localPos)
+        /// No descriptions, nothing else to click: only the things she does stay usable.
+        static void OnlyTheseCanBeUsed(Transform props, params string[] verbs)
+        {
+            foreach (var it in props.GetComponentsInChildren<Interactable>(true))
+            {
+                if (verbs.Contains(it.verb)) { it.lines = new string[0]; continue; }
+                foreach (var c in it.GetComponents<Collider>()) if (c.isTrigger) Object.DestroyImmediate(c);
+                Object.DestroyImmediate(it);
+            }
+        }
+
+        /// The cloud she breathes out after a hit. Lives on the camera so it comes from her.
+        static ParticleSystem Exhale(Transform cam)
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.render-pipelines.universal/Runtime/Materials/ParticlesUnlit.mat");
-            var go = new GameObject("Mist");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
-            go.transform.rotation = Quaternion.LookRotation(new Vector3(1f, 0.3f, 0f)); // out from the wall, toward her
+            var go = new GameObject("Exhale");
+            go.transform.SetParent(cam, false);
+            go.transform.localPosition = new Vector3(0, -0.08f, 0.12f);
             var ps = go.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
-            main.playOnAwake = false; main.loop = false;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.2f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.1f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.015f, 0.04f);
-            main.startColor = new Color(1f, 0.85f, 0.92f, 0.35f);
-            main.gravityModifier = -0.01f; main.maxParticles = 200;
+            main.playOnAwake = false; main.loop = false; main.duration = 1f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.5f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.6f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f);
+            main.startColor = new Color(0.92f, 0.88f, 0.9f, 0.28f);
+            main.gravityModifier = -0.015f; main.maxParticles = 300;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             var em = ps.emission; em.rateOverTime = 0;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 14f; sh.radius = 0.003f;
-            var vel = ps.limitVelocityOverLifetime; vel.enabled = true; vel.limit = 0.15f; vel.dampen = 0.12f;
-            var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0.6f, 1, 4f));
-            var noise = ps.noise; noise.enabled = true; noise.strength = 0.08f; noise.frequency = 1.2f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 22f; sh.radius = 0.02f;
+            var vel = ps.limitVelocityOverLifetime; vel.enabled = true; vel.limit = 0.08f; vel.dampen = 0.08f;
+            var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0.5f, 1, 5f));
+            var noise = ps.noise; noise.enabled = true; noise.strength = 0.06f; noise.frequency = 0.5f;
             var col = ps.colorOverLifetime; col.enabled = true;
             var grad = new Gradient();
             grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) },
-                         new[] { new GradientAlphaKey(0.9f, 0), new GradientAlphaKey(0.5f, 0.3f), new GradientAlphaKey(0f, 1) });
+                         new[] { new GradientAlphaKey(0.8f, 0), new GradientAlphaKey(0.4f, 0.4f), new GradientAlphaKey(0f, 1) });
             col.color = grad;
             if (mat) go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat;
             return ps;
@@ -1361,6 +1370,7 @@ namespace PinkBackrooms.EditorTools
             dot.transform.SetParent(go.transform, false);
             var drt = (RectTransform)dot.transform; drt.sizeDelta = new Vector2(3, 3);
             var img = dot.GetComponent<Image>(); img.color = new Color(1, 1, 1, 0.55f); img.raycastTarget = false;
+            hud.crosshair = img;
 
             var fade = new GameObject("Fader", typeof(RectTransform), typeof(Image));
             fade.transform.SetParent(go.transform, false);

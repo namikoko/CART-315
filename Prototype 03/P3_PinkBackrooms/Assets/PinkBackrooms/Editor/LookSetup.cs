@@ -17,6 +17,7 @@ namespace PinkBackrooms.EditorTools
         public static void ApplyAll()
         {
             PlayerSettings.productName = "My Ana";
+            PlayerSettings.runInBackground = true;
             ImportTextures();
             ConfigurePipelineAssets();
             CreateOrUpdateProfile();

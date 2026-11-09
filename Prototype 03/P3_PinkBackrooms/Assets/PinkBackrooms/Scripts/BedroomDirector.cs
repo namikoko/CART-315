@@ -1,12 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace PinkBackrooms
 {
-    /// Runs the bedroom: fade in, objectives, knocks at the door, waking the mirror, and the ending.
+    /// Runs the bedroom. No words anywhere: you wake up in bed staring at the ceiling, get up when you're ready,
+    /// and after you've done two things in the room the mirror wakes and takes you further in.
     public class BedroomDirector : MonoBehaviour
     {
         public static BedroomDirector Instance { get; private set; }
@@ -16,15 +18,21 @@ namespace PinkBackrooms
         public Transform player;
         public PlayerInteractor interactor;
         public Volume volume;
+        public RoomMood mood;
 
-        [Header("Objectives")]
-        public string objectiveStart = "get up";
-        public string objectiveLook = "look around";
-        public string objectiveMirror = "look in the mirror";
-        [Tooltip("How many things the player has to look at before the mirror wakes up.")]
-        public int examinedToWakeMirror = 6;
+        [Header("Waking up")]
+        [Tooltip("Where her eyes are while she lies in bed at the start (on her pillow, looking up).")]
+        public Vector3 lyingEye = new Vector3(-0.86f, 0.8f, 1.8f);
+        public float lyingYaw = 180f;
+        [Tooltip("Where she stands once she's out of bed (the player's feet).")]
+        public Vector3 standPosition = new Vector3(-1.62f, 0.05f, 1.0f);
+        public float standYaw = 150f;
+        [Tooltip("If the player does nothing, she gets up on her own after this long.")]
+        public float getUpAnyway = 40f;
 
         [Header("Mirror")]
+        [Tooltip("How many different things the player has to do before the mirror wakes up.")]
+        public int examinedToWakeMirror = 2;
         public FlickerLight mirrorLights;
         public Renderer mirrorGlass;
         [ColorUsage(false, true)] public Color mirrorGlow = new Color(1f, 0.55f, 0.75f) * 1.5f;
@@ -39,36 +47,82 @@ namespace PinkBackrooms
         public AudioSource[] ambienceToSilence = new AudioSource[0];
         [Tooltip("Faint anxious heartbeat under everything; it races during the ending.")]
         public AudioSource heartbeat;
-        [Tooltip("Resting heartbeat volume. Louder when the speaker is off, quieter while she sleeps.")]
+        [Tooltip("Resting heartbeat volume.")]
         public float heartbeatBase = 0.16f;
 
-        [Header("Ending")]
-        [TextArea(1, 2)] public string[] endingLines = { "it lets you go.", "for now." };
-        public string endTitle = "MY ANA\n\npart one: the room";
-
         public bool MirrorAwake { get; private set; }
+        public bool IsEnding => _ending;
+        public bool OutOfBed { get; private set; }
+        public Vector3 StandPosition => standPosition;
+        public Quaternion StandRotation => Quaternion.Euler(0, standYaw, 0);
 
         private readonly HashSet<Interactable> _seen = new HashSet<Interactable>();
-        private Vector3 _start;
-        private int _stage;
+        private readonly List<Behaviour> _frozen = new List<Behaviour>();
         private bool _ending;
         private float _spike;
-        private readonly List<Behaviour> _frozen = new List<Behaviour>();
-
-        public Vector3 StartPosition { get; private set; }
-        public Quaternion StartRotation { get; private set; }
+        private Vector3 _eyeOffset;   // camera position relative to the player's feet, standing, in the player's local space
 
         private void Awake() { Instance = this; }
 
         private IEnumerator Start()
         {
-            if (player) { _start = player.position; StartPosition = player.position; StartRotation = player.rotation; }
-            hud.SetObjective("");
+            var cam = interactor ? interactor.cam : Camera.main;
+            if (cam) _eyeOffset = player.InverseTransformPoint(cam.transform.position);
+            if (_eyeOffset.y < 0.5f) _eyeOffset = new Vector3(0, 1.6f, 0);
+
+            // black. lying on her back on the pillow, looking up at the canopy.
+            FreezePlayer(true);
             if (hud.fader) hud.fader.color = Color.black;
-            yield return new WaitForSeconds(1.0f);
-            yield return hud.Fade(Color.black, new Color(0, 0, 0, 0), 3.5f);
-            hud.SetObjective(objectiveStart);
+            PlaceEye(lyingEye, lyingYaw, 82f);
+            yield return new WaitForSeconds(2.5f);
+            yield return hud.Fade(Color.black, new Color(0, 0, 0, 0), 5f);
             StartCoroutine(Knocks());
+
+            // she gets up when you do something (any key, a click, moving the mouse a lot)
+            float waited = 0, mouse = 0;
+            while (waited < getUpAnyway)
+            {
+                waited += Time.deltaTime;
+                var kb = Keyboard.current; var m = Mouse.current;
+                if (kb != null && kb.anyKey.wasPressedThisFrame) break;
+                if (m != null && (m.leftButton.wasPressedThisFrame || m.rightButton.wasPressedThisFrame)) break;
+                if (m != null) { mouse += m.delta.ReadValue().magnitude; if (mouse > 900) break; }
+                // let the eyes wander a little while lying there
+                if (m != null)
+                {
+                    var l = GetLook(); var d = m.delta.ReadValue() * 0.05f;
+                    SetLook(Mathf.Clamp(Mathf.DeltaAngle(lyingYaw, l.x + d.x), -25, 25) + lyingYaw, Mathf.Clamp(l.y + d.y, 60, 88));
+                }
+                yield return null;
+            }
+            yield return GetUp();
+        }
+
+        /// Sit up, swing the legs off the left side, stand.
+        private IEnumerator GetUp()
+        {
+            Vector2 l0 = GetLook();
+            Vector3 e0 = EyeNow();
+            Vector3 sit = new Vector3(lyingEye.x - 0.1f, 1.05f, lyingEye.z - 0.35f);
+            for (float t = 0; t < 1.6f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0, 1, t / 1.6f);
+                PlaceEye(Vector3.Lerp(e0, sit, k), l0.x + Mathf.DeltaAngle(l0.x, lyingYaw) * k, Mathf.Lerp(l0.y, 8f, k));
+                yield return null;
+            }
+            Vector3 standEye = standPosition + Quaternion.Euler(0, standYaw, 0) * _eyeOffset;
+            float y0 = lyingYaw, y1 = lyingYaw + Mathf.DeltaAngle(lyingYaw, standYaw);
+            for (float t = 0; t < 2.2f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0, 1, t / 2.2f);
+                Vector3 p = Vector3.Lerp(sit, standEye, k);
+                p.y = Mathf.Lerp(sit.y, standEye.y, Mathf.SmoothStep(0, 1, Mathf.Clamp01(k * 1.6f - 0.4f)));
+                PlaceEye(p, Mathf.Lerp(y0, y1, k), Mathf.Lerp(8f, 0f, k));
+                yield return null;
+            }
+            StandAt(standPosition, standYaw);
+            OutOfBed = true;
+            FreezePlayer(false);
         }
 
         private void Update()
@@ -79,23 +133,10 @@ namespace PinkBackrooms
                 heartbeat.volume = Mathf.Lerp(heartbeat.volume, heartbeatBase + _spike * 0.55f, Time.deltaTime * 3f);
                 heartbeat.pitch = Mathf.Lerp(heartbeat.pitch, 1f + _spike * 0.5f, Time.deltaTime * 2f);
             }
-            if (_stage == 0 && player)
-            {
-                var d = player.position - _start; d.y = 0;
-                if (d.magnitude > 1.2f) Advance();
-            }
-        }
-
-        private void Advance()
-        {
-            if (_stage > 0) return;
-            _stage = 1;
-            if (!MirrorAwake) hud.SetObjective(objectiveLook);
         }
 
         public void OnExamined(Interactable it)
         {
-            Advance();
             _seen.Add(it);
             if (!MirrorAwake && _seen.Count >= examinedToWakeMirror) StartCoroutine(WakeMirror());
         }
@@ -116,7 +157,6 @@ namespace PinkBackrooms
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", mirrorGlow * 0.25f);
             }
-            hud.SetObjective(objectiveMirror);
         }
 
         private IEnumerator Knocks()
@@ -165,16 +205,38 @@ namespace PinkBackrooms
             if (interactor) interactor.inputEnabled = !freeze;
             if (freeze)
             {
-                _frozen.Clear();
                 foreach (var mb in player.GetComponents<MonoBehaviour>())
                     if (mb.enabled && mb.GetType().Namespace == "Cart315.FirstPerson") { mb.enabled = false; _frozen.Add(mb); }
-                hud.SetPrompt("");
+                if (hud) hud.SetPrompt("");
             }
             else if (!_ending)
             {
                 foreach (var b in _frozen) if (b) b.enabled = true;
                 _frozen.Clear();
             }
+        }
+
+        /// Puts the camera at a world position (lying, sitting, crouched...). The body goes wherever that needs,
+        /// so collisions are off until StandAt is called.
+        public void PlaceEye(Vector3 eye, float yaw, float pitch)
+        {
+            var cc = player.GetComponent<CharacterController>();
+            if (cc) cc.enabled = false;
+            player.position = eye - Quaternion.Euler(0, yaw, 0) * _eyeOffset;
+            SetLook(yaw, pitch);
+        }
+
+        public Vector3 EyeNow() => player.position + player.rotation * _eyeOffset;
+        public Vector3 EyeOffset => _eyeOffset;
+
+        /// Back on her feet at a spot on the floor, with collisions on.
+        public void StandAt(Vector3 feet, float yaw, float pitch = 0f)
+        {
+            var cc = player.GetComponent<CharacterController>();
+            if (cc) cc.enabled = false;
+            player.position = feet;
+            SetLook(yaw, pitch);
+            if (cc) cc.enabled = true;
         }
 
         /// Moves the player without fighting the CharacterController.
@@ -219,7 +281,21 @@ namespace PinkBackrooms
             if (holder) holder.localRotation = Quaternion.Euler(-pitch, 0, 0);
         }
 
-        public bool IsEnding => _ending;
+        /// Mouse look while the controller is switched off (lying, walking on the pad). Keeps within a range around a centre.
+        public void FreeLook(float centreYaw, float yawRange, float minPitch, float maxPitch, float sensitivity = 0.06f)
+        {
+            var m = Mouse.current; if (m == null) return;
+            var l = GetLook(); var d = m.delta.ReadValue() * sensitivity;
+            float yaw = centreYaw + Mathf.Clamp(Mathf.DeltaAngle(centreYaw, l.x + d.x), -yawRange, yawRange);
+            SetLook(yaw, Mathf.Clamp(l.y + d.y, minPitch, maxPitch));
+        }
+
+        /// E, space or escape: get off / get up.
+        public static bool LeavePressed()
+        {
+            var kb = Keyboard.current;
+            return kb != null && (kb.eKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame);
+        }
 
         public void BeginEnding()
         {
@@ -231,10 +307,9 @@ namespace PinkBackrooms
         private IEnumerator Ending()
         {
             if (interactor) interactor.inputEnabled = false;
-            hud.SetObjective("");
             hud.SetPrompt("");
+            if (mood) mood.enabled = false;
 
-            // Freeze the player where they stand.
             foreach (var mb in player.GetComponents<MonoBehaviour>())
                 if (mb.GetType().Namespace == "Cart315.FirstPerson") mb.enabled = false;
 
@@ -265,13 +340,6 @@ namespace PinkBackrooms
             yield return hud.Fade(new Color(1f, 0.85f, 0.9f, 1f), Color.black, 1.5f);
             foreach (var a in ambienceToSilence) if (a) a.Stop();
             if (heartbeat) heartbeat.Stop();
-
-            foreach (var l in endingLines)
-            {
-                hud.ShowLine(l);
-                yield return new WaitForSeconds(2.2f + l.Length * 0.08f);
-            }
-            yield return hud.ShowTitle(endTitle, 6f);
         }
     }
 }

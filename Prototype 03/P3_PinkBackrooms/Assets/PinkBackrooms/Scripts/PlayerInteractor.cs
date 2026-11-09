@@ -31,7 +31,7 @@ namespace PinkBackrooms
             {
                 if (Hits[i].distance > solid + 0.02f) continue;
                 var it = Hits[i].collider.GetComponentInParent<Interactable>();
-                if (it == null || !it.isActiveAndEnabled) continue;
+                if (it == null || !it.isActiveAndEnabled || !it.CanUse) continue;
                 var s = Hits[i].collider.bounds.size;
                 float size = s.x * s.y * s.z;
                 if (size < bestSize) { bestSize = size; best = it; }

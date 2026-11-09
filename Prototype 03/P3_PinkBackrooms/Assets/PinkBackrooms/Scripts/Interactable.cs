@@ -28,6 +28,9 @@ namespace PinkBackrooms
         [Range(0, 1)] public float soundVolume = 0.6f;
         public UnityEvent onInteract = new UnityEvent();
 
+        /// False while it's still waiting for something (the mirror before it wakes). Nothing shows when you look at it.
+        public bool CanUse => !requiresMirrorAwake || (BedroomDirector.Instance != null && BedroomDirector.Instance.MirrorAwake);
+
         private int _index;
         public bool Seen { get; private set; }
 

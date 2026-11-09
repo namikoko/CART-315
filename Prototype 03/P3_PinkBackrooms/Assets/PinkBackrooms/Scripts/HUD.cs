@@ -13,6 +13,10 @@ namespace PinkBackrooms
         public Text line;
         public Text title;
         public Image fader;
+        [Tooltip("The little dot in the middle. It swells when you're looking at something you can use.")]
+        public Image crosshair;
+        [Tooltip("No words on screen: objectives, prompts and thoughts are all switched off.")]
+        public bool silent = true;
 
         [Tooltip("Tried in order at runtime for a typewriter / VHS feel. Falls back to the default font.")]
         public string[] fontNames = { "Courier New", "Courier", "Menlo", "Monaco", "Consolas" };
@@ -32,17 +36,25 @@ namespace PinkBackrooms
 
         public void SetObjective(string s)
         {
+            if (silent) s = "";
             if (objective) objective.text = string.IsNullOrEmpty(s) ? "" : "Objective: " + s;
         }
 
         public void SetPrompt(string s)
         {
+            bool usable = !string.IsNullOrEmpty(s);
+            if (crosshair)
+            {
+                crosshair.rectTransform.sizeDelta = Vector2.one * (usable ? 7f : 3f);
+                crosshair.color = usable ? new Color(1f, 0.75f, 0.88f, 0.9f) : new Color(1, 1, 1, 0.55f);
+            }
+            if (silent) s = "";
             if (prompt && prompt.text != s) prompt.text = s;
         }
 
         public void ShowLine(string s)
         {
-            if (!line) return;
+            if (!line || silent) return;
             if (_lineRoutine != null) StopCoroutine(_lineRoutine);
             _lineRoutine = StartCoroutine(TypeLine(s));
         }
