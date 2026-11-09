@@ -760,16 +760,42 @@ namespace PinkBackrooms.EditorTools
             Box("Pocket", bag, new Vector3(0, 0.14f, 0.1f), new Vector3(0.22f, 0.14f, 0.05f), bp, new Vector3(-12, 0, 0));
             Prim(PrimitiveType.Sphere, "Charm", bag, new Vector3(0.12f, 0.32f, 0.11f), Vector3.one * 0.04f, Mat("Bow", null, new Color(0.95f, 0.55f, 0.7f), Vector2.one, null, 0.4f));
 
-            // pink shopping bags by the vanity
+            // paper shopping bags by the vanity: open tops, rope handles, tissue paper spilling out
             var shop = Mat("Shopping Bag", "paint_white", new Color(1f, 0.72f, 0.82f), Vector2.one, null, 0.3f);
             var shop2 = Mat("Shopping Bag White", "paint_white", new Color(0.97f, 0.95f, 0.95f), Vector2.one, null, 0.3f);
-            foreach (var (p, yaw, m, tip) in new[] { (new Vector3(-2.15f, 0, -1.55f), 20f, shop, 0f), (new Vector3(-1.85f, 0, -1.85f), -30f, shop2, 0f), (new Vector3(-1.75f, 0, -1.45f), 70f, shop, 85f) })
+            var crease = Mat("Bag Crease", null, new Color(0.55f, 0.4f, 0.45f), Vector2.one);
+            var rope = Mat("Bag Rope", null, new Color(0.95f, 0.9f, 0.92f), Vector2.one, null, 0.2f);
+            var tissueP = Mat("Tissue Paper", "fabric_white", new Color(1f, 0.92f, 0.95f), Vector2.one);
+            var logo = Mat("Bag Logo", "plastic_bag", Color.white, Vector2.one);
+            foreach (var (p, yaw, m, tip) in new[] { (new Vector3(-2.15f, 0, -1.55f), 20f, shop, 0f), (new Vector3(-1.85f, 0, -1.85f), -30f, shop2, 0f), (new Vector3(-1.72f, 0.07f, -1.42f), 70f, shop, 88f) })
             {
-                var sb = Group("Shopping Bag", g, p); sb.localEulerAngles = new Vector3(tip, yaw, 0);
-                Box("Bag", sb, new Vector3(0, 0.17f, 0), new Vector3(0.3f, 0.34f, 0.12f), m);
-                Beam("Handle", sb, new Vector3(-0.07f, 0.34f, 0), new Vector3(0, 0.42f, 0), 0.01f, 0.01f, m);
-                Beam("Handle", sb, new Vector3(0, 0.42f, 0), new Vector3(0.07f, 0.34f, 0), 0.01f, 0.01f, m);
-                Box("Tissue Paper", sb, new Vector3(0, 0.35f, 0), new Vector3(0.22f, 0.06f, 0.08f), tissue, new Vector3(0, 0, 8));
+                var sb = Group("Shopping Bag", g, p); sb.localEulerAngles = new Vector3(0, yaw, tip);
+                const float bw = 0.28f, bh = 0.32f, bd = 0.13f, t = 0.006f;
+                Box("Bottom", sb, new Vector3(0, t / 2, 0), new Vector3(bw, t, bd), m);
+                Box("Front", sb, new Vector3(0, bh / 2, -bd / 2), new Vector3(bw, bh, t), m);
+                Box("Back", sb, new Vector3(0, bh / 2, bd / 2), new Vector3(bw, bh, t), m);
+                Box("Side", sb, new Vector3(-bw / 2, bh / 2, 0), new Vector3(t, bh, bd), m);
+                Box("Side", sb, new Vector3(bw / 2, bh / 2, 0), new Vector3(t, bh, bd), m);
+                Box("Gusset Fold", sb, new Vector3(-bw / 2 - 0.002f, bh / 2, 0), new Vector3(0.002f, bh * 0.95f, 0.004f), crease);
+                Box("Gusset Fold", sb, new Vector3(bw / 2 + 0.002f, bh / 2, 0), new Vector3(0.002f, bh * 0.95f, 0.004f), crease);
+                Box("Top Fold", sb, new Vector3(0, bh - 0.02f, -bd / 2 - 0.002f), new Vector3(bw, 0.003f, 0.002f), crease);
+                Quad("Logo", sb, new Vector3(0, bh * 0.5f, -bd / 2 - 0.004f), new Vector2(0.1f, 0.1f), logo, Vector3.zero);
+                // rope handles: arcs over the opening, front and back
+                foreach (var z in new[] { -bd / 2 + 0.01f, bd / 2 - 0.01f })
+                {
+                    Vector3 prev = new Vector3(-0.06f, bh, z);
+                    for (int k = 1; k <= 6; k++)
+                    {
+                        float a = Mathf.PI * k / 6f;
+                        var pt = new Vector3(-0.06f * Mathf.Cos(a), bh + 0.09f * Mathf.Sin(a), z);
+                        Beam("Handle", sb, prev, pt, 0.007f, 0.007f, rope);
+                        prev = pt;
+                    }
+                }
+                // crumpled tissue paper poking out
+                var tp = Garment("Tissue Paper", sb, new Vector3(0, bh - 0.05f, 0), 30, "cami_a", tissueP);
+                tp.transform.localScale = new Vector3(0.45f, 1.6f, 0.3f);
+                tp.transform.localEulerAngles = new Vector3(-8, 30, 0);
             }
 
             // books and magazines stacked by the bed, one open face down
@@ -985,14 +1011,35 @@ namespace PinkBackrooms.EditorTools
 
             var dishes = Group("Dirty Dishes", g, new Vector3(-0.25f, 0, -1.25f));
             var plate = Mat("Plate", null, new Color(0.96f, 0.94f, 0.94f), Vector2.one, null, 0.6f);
-            var grime = Mat("Food Grime", null, new Color(0.55f, 0.35f, 0.2f), Vector2.one);
+            var well = Mat("Plate Well", null, new Color(0.88f, 0.86f, 0.87f), Vector2.one, null, 0.5f);
+            var sauce = Mat("Sauce Smear", "stain_blood_old", new Color(1.15f, 0.8f, 0.45f), Vector2.one, clip: true, doubleSided: true);
+            var crumb = Mat("Food Bits", null, new Color(0.9f, 0.8f, 0.6f), Vector2.one);
+            var steel = Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f);
+            // stacked plates: a foot, a wide flat rim, a slightly sunken well, sauce dried on the top one
             for (int i = 0; i < 3; i++)
-                Prim(PrimitiveType.Cylinder, "Plate", dishes, new Vector3(R(-0.02f, 0.02f), 0.008f + i * 0.014f, R(-0.02f, 0.02f)), new Vector3(0.24f, 0.006f, 0.24f), plate);
-            Prim(PrimitiveType.Sphere, "Crust", dishes, new Vector3(0.04f, 0.045f, 0.02f), new Vector3(0.08f, 0.012f, 0.06f), grime);
-            Prim(PrimitiveType.Cylinder, "Bowl", dishes, new Vector3(0.25f, 0.035f, 0.1f), new Vector3(0.15f, 0.035f, 0.15f), plate);
-            Prim(PrimitiveType.Cylinder, "Bowl Grime", dishes, new Vector3(0.25f, 0.068f, 0.1f), new Vector3(0.12f, 0.002f, 0.12f), grime);
-            Beam("Spoon", dishes, new Vector3(0.22f, 0.07f, 0.1f), new Vector3(0.38f, 0.0f, 0.2f), 0.015f, 0.004f, Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f));
-            Beam("Fork", dishes, new Vector3(-0.15f, 0.004f, 0.12f), new Vector3(-0.02f, 0.004f, 0.25f), 0.012f, 0.004f, Mat("Weight Bar", null, new Color(0.6f, 0.6f, 0.62f), Vector2.one, null, 0.7f, metallic: 0.8f));
+            {
+                var pl = Group("Plate", dishes, new Vector3(R(-0.015f, 0.015f), i * 0.016f, R(-0.015f, 0.015f)));
+                Prim(PrimitiveType.Cylinder, "Foot", pl, new Vector3(0, 0.004f, 0), new Vector3(0.14f, 0.004f, 0.14f), plate);
+                Prim(PrimitiveType.Cylinder, "Rim", pl, new Vector3(0, 0.011f, 0), new Vector3(0.25f, 0.003f, 0.25f), plate);
+                Prim(PrimitiveType.Cylinder, "Well", pl, new Vector3(0, 0.0125f, 0), new Vector3(0.17f, 0.0015f, 0.17f), well);
+            }
+            Quad("Sauce", dishes, new Vector3(0.01f, 0.0465f, 0.0f), new Vector2(0.14f, 0.11f), sauce, new Vector3(90, 40, 0));
+            for (int i = 0; i < 7; i++)
+                Prim(PrimitiveType.Sphere, "Food Bit", dishes, new Vector3(R(-0.06f, 0.06f), 0.049f, R(-0.05f, 0.05f)), new Vector3(R(0.008f, 0.016f), 0.006f, R(0.006f, 0.012f)), crumb, new Vector3(0, R(0, 180), 0));
+            // fork resting on the plate
+            var fork = Group("Fork", dishes, new Vector3(0.04f, 0.05f, 0.02f)); fork.localEulerAngles = new Vector3(0, 35, 4);
+            Box("Handle", fork, new Vector3(0, 0, -0.06f), new Vector3(0.012f, 0.003f, 0.12f), steel);
+            Box("Neck", fork, new Vector3(0, 0, 0.012f), new Vector3(0.02f, 0.003f, 0.025f), steel);
+            for (int k = 0; k < 4; k++) Box("Tine", fork, new Vector3(-0.0075f + k * 0.005f, 0, 0.04f), new Vector3(0.0025f, 0.003f, 0.035f), steel);
+            // bowl with dried residue and a spoon left in it
+            var bowl = Group("Bowl", dishes, new Vector3(0.26f, 0, 0.12f));
+            Prim(PrimitiveType.Cylinder, "Base", bowl, new Vector3(0, 0.008f, 0), new Vector3(0.07f, 0.008f, 0.07f), plate);
+            Prim(PrimitiveType.Cylinder, "Lower", bowl, new Vector3(0, 0.025f, 0), new Vector3(0.11f, 0.012f, 0.11f), plate);
+            Prim(PrimitiveType.Cylinder, "Upper", bowl, new Vector3(0, 0.048f, 0), new Vector3(0.15f, 0.014f, 0.15f), plate);
+            Prim(PrimitiveType.Cylinder, "Inside", bowl, new Vector3(0, 0.0625f, 0), new Vector3(0.13f, 0.0015f, 0.13f), Mat("Bowl Residue", null, new Color(0.62f, 0.42f, 0.24f), Vector2.one, null, 0.3f));
+            var spoon = Group("Spoon", bowl, new Vector3(0.02f, 0.064f, 0.0f)); spoon.localEulerAngles = new Vector3(0, -50, -18);
+            Prim(PrimitiveType.Sphere, "Bowl of Spoon", spoon, Vector3.zero, new Vector3(0.035f, 0.008f, 0.05f), steel);
+            Box("Handle", spoon, new Vector3(0, 0.004f, -0.08f), new Vector3(0.01f, 0.003f, 0.12f), steel, new Vector3(-6, 0, 0));
 
             // --- more perfume on the vanity
             var vanity = new Vector3(-HX + 0.23f, 0.76f, -0.6f);
