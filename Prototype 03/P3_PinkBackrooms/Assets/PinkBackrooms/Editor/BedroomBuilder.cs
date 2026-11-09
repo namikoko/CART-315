@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Cart315.FirstPerson;
 using UnityEditor;
 using UnityEditor.Events;
@@ -45,6 +46,7 @@ namespace PinkBackrooms.EditorTools
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             LookSetup.ApplyAll();
+            ImportClothes();
             Directory.CreateDirectory(MatDir);
             Directory.CreateDirectory(Root + "/Scenes");
             AssetDatabase.Refresh();
@@ -230,20 +232,17 @@ namespace PinkBackrooms.EditorTools
             Box("Mattress", g, new Vector3(0, 0.46f, 0), new Vector3(1.5f, 0.24f, 1.96f), mattress, collider: true);
 
             // fitted sheet pulled half off: mattress shows at the foot and one side
-            Box("Fitted Sheet (pulled off)", g, new Vector3(0.12f, 0.585f, 0.38f), new Vector3(1.32f, 0.02f, 1.22f), sheet, new Vector3(0, 5, 0));
+            Box("Fitted Sheet (pulled off)", g, new Vector3(0.34f, 0.585f, 0.38f), new Vector3(0.88f, 0.02f, 1.22f), sheet, new Vector3(0, 5, 0));
             Box("Sheet Corner (hanging)", g, new Vector3(0.74f, 0.46f, 0.55f), new Vector3(0.02f, 0.3f, 0.7f), sheet, new Vector3(0, 0, 8));
             // duvet: bunched on the bed, sliding off the left side, pooled on the floor
-            Prim(PrimitiveType.Sphere, "Duvet Lump", g, new Vector3(-0.15f, 0.64f, -0.35f), new Vector3(1.0f, 0.2f, 0.85f), duvet, new Vector3(0, -12, 4));
-            Prim(PrimitiveType.Sphere, "Duvet Lump 2", g, new Vector3(-0.45f, 0.67f, 0.05f), new Vector3(0.6f, 0.22f, 0.55f), duvet, new Vector3(0, 20, -6));
-            Box("Duvet Hanging", g, new Vector3(-0.84f, 0.36f, -0.3f), new Vector3(0.03f, 0.62f, 1.05f), duvet, new Vector3(0, -6, -14));
-            Prim(PrimitiveType.Sphere, "Duvet Pool", g, new Vector3(-1.12f, 0.03f, -0.4f), new Vector3(0.6f, 0.09f, 1.2f), duvet, new Vector3(0, -14, 0));
+            // cloth-simulated duvet: bunched on the bed, sliding off the left side, pooling on the floor
+            Garment("Duvet", g, Vector3.zero, 0, "duvet", Mat("Garment Duvet", "fabric_pink_knit", new Color(1f, 0.93f, 0.95f), new Vector2(1, 1)));
             // pillows
             Prim(PrimitiveType.Sphere, "Pillow", g, new Vector3(-0.32f, 0.66f, 0.76f), new Vector3(0.58f, 0.17f, 0.36f), pillowW, new Vector3(0, 8, 3));
             Prim(PrimitiveType.Sphere, "Pillow 2", g, new Vector3(0.36f, 0.68f, 0.82f), new Vector3(0.55f, 0.17f, 0.34f), pillowP, new Vector3(-10, -6, -8));
             // black hoodie thrown on the bed
             var black = Mat("Fabric Black", "fabric_black", Color.white, new Vector2(2, 2));
-            Prim(PrimitiveType.Sphere, "Hoodie", g, new Vector3(0.28f, 0.63f, -0.3f), new Vector3(0.48f, 0.1f, 0.4f), black, new Vector3(0, 30, 0));
-            Prim(PrimitiveType.Capsule, "Hoodie Sleeve", g, new Vector3(0.52f, 0.61f, -0.55f), new Vector3(0.1f, 0.22f, 0.08f), black, new Vector3(90, 50, 0));
+            Garment("Camisole", g, new Vector3(0.45f, 0.6f, 0.1f), 140, "cami_a", GarmentMat("fabric_lilac", Color.white));
 
             Interact(g, "look at the bed", true, 0.05f,
                 "i live here. most of the time.",
@@ -416,8 +415,7 @@ namespace PinkBackrooms.EditorTools
                 Prim(PrimitiveType.Cylinder, "Leg", stool, new Vector3(Mathf.Cos(a) * 0.12f, 0.21f, Mathf.Sin(a) * 0.12f), new Vector3(0.025f, 0.21f, 0.025f), white);
             }
             var lilac = Mat("Fabric Lilac", "fabric_lilac", Color.white, Vector2.one, doubleSided: true);
-            Box("Cardigan", stool, new Vector3(0.02f, 0.49f, 0), new Vector3(0.44f, 0.03f, 0.3f), lilac, new Vector3(0, 15, 6));
-            Box("Cardigan (hanging)", stool, new Vector3(0.22f, 0.33f, 0.03f), new Vector3(0.03f, 0.3f, 0.28f), lilac, new Vector3(0, 15, 10));
+            Garment("Cardigan", stool, Vector3.zero, 0, "stool_cardigan", GarmentMat("fabric_lilac", Color.white));
 
             Interact(v, "look at the vanity", true, 0.02f,
                 "when i go out i do everything. makeup, best outfit.",
@@ -609,18 +607,13 @@ namespace PinkBackrooms.EditorTools
         {
             // main pile spilling out of the wardrobe
             var pile = Group("Clothes Pile", props, new Vector3(1.55f, 0, -1.2f));
-            string[] fabrics = { "fabric_pink_knit", "fabric_black", "fabric_white", "fabric_plaid", "fabric_dots", "fabric_lilac", "fabric_white", "fabric_pink_knit", "fabric_black", "fabric_dots", "fabric_lilac", "fabric_plaid", "fabric_white", "fabric_pink_knit" };
-            var rnd = new System.Random(4);
-            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-            for (int i = 0; i < fabrics.Length; i++)
-            {
-                var m = Mat("Cloth " + fabrics[i], fabrics[i], Color.white, Vector2.one, doubleSided: true);
-                var p = new Vector3(R(-0.4f, 0.4f) * (1f - i / 20f), 0.03f + i * 0.012f, R(-0.35f, 0.35f) * (1f - i / 20f));
-                if (i % 2 == 0)
-                    Prim(PrimitiveType.Sphere, "Clothes (bunched)", pile, p + Vector3.up * 0.03f, new Vector3(R(0.3f, 0.5f), R(0.12f, 0.22f), R(0.25f, 0.42f)), m, new Vector3(R(-10, 10), R(0, 360), R(-10, 10)));
-                else
-                    Box("Clothes (flat)", pile, p, new Vector3(R(0.35f, 0.55f), 0.02f, R(0.3f, 0.5f)), m, new Vector3(R(-6, 6), R(0, 360), R(-6, 6)));
-            }
+            // a soft mound underneath, then real garments layered over it (cloth-simulated)
+            Prim(PrimitiveType.Sphere, "Pile Mound", pile, new Vector3(0, 0.0f, 0), new Vector3(0.56f, 0.15f, 0.44f), GarmentMat("fabric_black", new Color(0.7f, 0.65f, 0.7f)));
+            Garment("T-shirt", pile, Vector3.zero, 0, "pile_1", GarmentMat("fabric_white", Color.white));
+            Garment("Hoodie", pile, new Vector3(0, 0.008f, 0), 0, "pile_2", GarmentMat("fabric_black", Color.white));
+            Garment("Camisole", pile, new Vector3(0, 0.016f, 0), 0, "pile_3", GarmentMat("fabric_pink_knit", Color.white));
+            Garment("T-shirt", pile, new Vector3(0, 0.024f, 0), 0, "pile_4", GarmentMat("fabric_dots", Color.white));
+            Garment("Jeans", pile, new Vector3(0, 0.032f, 0), 0, "pile_5", Denim());
             Interact(pile, "look at the clothes", true, 0.35f,
                 "i clean. it comes back. it always comes back.",
                 "when i get up i'm already tired. i never have the energy.",
@@ -628,12 +621,9 @@ namespace PinkBackrooms.EditorTools
 
             // jeans and a shirt dropped on the rug
             var drop = Group("Dropped Clothes", props, new Vector3(-0.35f, 0, -0.85f));
-            var denim = Mat("Denim", "fabric_plaid", new Color(0.55f, 0.6f, 0.85f), Vector2.one);
-            Box("Jeans Leg", drop, new Vector3(0, 0.015f, 0), new Vector3(0.16f, 0.03f, 0.7f), denim, new Vector3(0, 20, 0));
-            Box("Jeans Leg", drop, new Vector3(0.12f, 0.02f, -0.02f), new Vector3(0.16f, 0.03f, 0.6f), denim, new Vector3(0, 35, 3));
-            var tee = Mat("Cloth fabric_white", "fabric_white", Color.white, Vector2.one, doubleSided: true);
-            Box("T-shirt", drop, new Vector3(-0.45f, 0.012f, 0.3f), new Vector3(0.45f, 0.02f, 0.5f), tee, new Vector3(0, -30, 0));
-            Box("Sock", drop, new Vector3(0.5f, 0.012f, 0.55f), new Vector3(0.07f, 0.02f, 0.2f), Mat("Cloth fabric_pink_knit", "fabric_pink_knit", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 60, 0));
+            Garment("Jeans", drop, Vector3.zero, 20, "jeans_b", Denim());
+            Garment("T-shirt", drop, new Vector3(-0.5f, 0, 0.35f), -30, "tshirt_b", GarmentMat("fabric_white", Color.white));
+            Garment("Sock", drop, new Vector3(0.5f, 0, 0.55f), 60, "sock_a", GarmentMat("fabric_pink_knit", Color.white));
         }
 
         static void Takeout(Transform props)
@@ -707,14 +697,18 @@ namespace PinkBackrooms.EditorTools
             var basket = Group("Laundry Basket", g, new Vector3(2.12f, 0, 1.78f));
             basket.localEulerAngles = new Vector3(0, 15, 0);
             var wicker = Mat("Basket", "plank", new Color(0.95f, 0.85f, 0.88f), new Vector2(2, 1));
-            Prim(PrimitiveType.Cylinder, "Basket", basket, new Vector3(0, 0.22f, 0), new Vector3(0.48f, 0.22f, 0.4f), wicker, Vector3.zero, collider: true);
+            Prim(PrimitiveType.Cylinder, "Basket", basket, new Vector3(0, 0.22f, 0), new Vector3(0.48f, 0.22f, 0.48f), wicker, Vector3.zero, collider: true);
             string[] f = { "fabric_white", "fabric_pink_knit", "fabric_black", "fabric_dots", "fabric_lilac", "fabric_plaid" };
-            for (int i = 0; i < 16; i++)
-                Prim(PrimitiveType.Sphere, "Laundry", basket, new Vector3(R(-0.2f, 0.2f), 0.42f + i * 0.035f, R(-0.16f, 0.16f)), new Vector3(R(0.18f, 0.3f), R(0.08f, 0.14f), R(0.15f, 0.25f)), Mat("Cloth " + f[i % f.Length], f[i % f.Length], Color.white, Vector2.one, doubleSided: true), new Vector3(R(-15, 15), R(0, 360), R(-15, 15)));
-            Box("Laundry (spilling)", basket, new Vector3(-0.32f, 0.2f, 0.05f), new Vector3(0.03f, 0.35f, 0.25f), Mat("Cloth fabric_dots", "fabric_dots", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 0, 25));
-            Box("Laundry (floor)", g, new Vector3(1.75f, 0.012f, 1.6f), new Vector3(0.35f, 0.02f, 0.3f), Mat("Cloth fabric_pink_knit", "fabric_pink_knit", Color.white, Vector2.one, doubleSided: true), new Vector3(0, 40, 0));
-            for (int i = 0; i < 6; i++)
-                Prim(PrimitiveType.Sphere, "Laundry (spilled over)", g, new Vector3(R(1.55f, 2.3f), 0.04f, R(1.2f, 1.6f)), new Vector3(R(0.2f, 0.32f), R(0.06f, 0.11f), R(0.18f, 0.28f)), Mat("Cloth " + f[i % f.Length], f[i % f.Length], Color.white, Vector2.one, doubleSided: true), new Vector3(R(-8, 8), R(0, 360), R(-8, 8)));
+            // heaped laundry spilling over the rim (cloth-simulated against the basket)
+            Prim(PrimitiveType.Sphere, "Laundry Mound", basket, new Vector3(0, 0.44f, 0), new Vector3(0.4f, 0.18f, 0.34f), GarmentMat("fabric_white", new Color(0.8f, 0.78f, 0.8f)));
+            Garment("Hoodie (on top)", basket, Vector3.zero, 0, "hamper_top", GarmentMat("fabric_pink_knit", Color.white));
+            Garment("T-shirt (hanging over)", basket, Vector3.zero, 0, "hamper_drape_1", GarmentMat("fabric_dots", Color.white));
+            Garment("Jeans (hanging over)", basket, Vector3.zero, 0, "hamper_drape_2", Denim());
+            // and what already fell on the floor
+            Garment("Skirt", g, new Vector3(1.72f, 0, 1.45f), 40, "skirt_a", GarmentMat("fabric_plaid", Color.white));
+            Garment("T-shirt", g, new Vector3(2.1f, 0, 1.15f), 110, "tshirt_a", GarmentMat("fabric_black", Color.white));
+            Garment("Sock", g, new Vector3(1.55f, 0, 1.2f), 200, "sock_b", GarmentMat("fabric_white", Color.white));
+            Garment("Jeans", g, new Vector3(-1.95f, 0, -1.25f), 75, "jeans_a", Denim());
             Interact(basket, "look at the hamper", false, 0.2f, "i don't remember the last time i did laundry.");
 
             // shoes kicked off by the door
@@ -777,7 +771,7 @@ namespace PinkBackrooms.EditorTools
             Prim(PrimitiveType.Sphere, "Ear", plush, new Vector3(0.05f, 0.2f, 0), Vector3.one * 0.05f, fur);
 
             // phone on the bed, screen lighting up the sheets
-            var phone = Group("Phone", g, new Vector3(-0.3f, 0.6f, 0.95f));
+            var phone = Group("Phone", g, new Vector3(0.12f, 0.6f, 1.4f));
             phone.localEulerAngles = new Vector3(0, 35, 0);
             Box("Phone", phone, Vector3.zero, new Vector3(0.075f, 0.01f, 0.15f), Mat("Phone Case", null, new Color(0.95f, 0.7f, 0.8f), Vector2.one, null, 0.5f));
             Box("Screen", phone, new Vector3(0, 0.0055f, 0), new Vector3(0.065f, 0.002f, 0.14f), Mat("Phone Screen", null, Color.black, Vector2.one, new Color(0.7f, 0.75f, 1f) * 1.2f));
@@ -810,7 +804,7 @@ namespace PinkBackrooms.EditorTools
                 Mat("Stain Blood", "stain_blood", Color.white, Vector2.one, clip: true, doubleSided: true));
 
             // --- macbook open on the bed, the only screen in the room
-            var mac = Group("Laptop", g, new Vector3(-0.62f, 0.6f, 1.28f));
+            var mac = Group("Laptop", g, new Vector3(-0.2f, 0.6f, 1.65f));
             mac.localEulerAngles = new Vector3(0, 12, -3);
             var alu = Mat("Laptop Body", null, new Color(0.88f, 0.78f, 0.8f), Vector2.one, null, 0.55f, metallic: 0.6f);
             Box("Base", mac, new Vector3(0, 0.008f, 0), new Vector3(0.31f, 0.015f, 0.22f), alu);
@@ -1210,6 +1204,43 @@ namespace PinkBackrooms.EditorTools
                 r.sharedMaterial = m;
             }
             return go;
+        }
+
+        /// Places a cloth-simulated clothing mesh (Assets/PinkBackrooms/Models/Clothes/<mesh>.obj).
+        static GameObject Garment(string name, Transform parent, Vector3 localPos, float yaw, string mesh, Material mat)
+        {
+            var path = Root + "/Models/Clothes/" + mesh + ".obj";
+            var m = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Mesh>().FirstOrDefault();
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localEulerAngles = new Vector3(0, yaw, 0);
+            if (!m) { Debug.LogWarning("[My Ana] Missing clothing mesh: " + path); return go; }
+            go.AddComponent<MeshFilter>().sharedMesh = m;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            return go;
+        }
+
+        static Material GarmentMat(string tex, Color tint) =>
+            Mat("Garment " + tex + (tint == Color.white ? "" : " " + ColorUtility.ToHtmlStringRGB(tint)), tex, tint, Vector2.one);
+
+        static Material Denim() => Mat("Garment Denim", "fabric_white", new Color(0.5f, 0.56f, 0.78f), Vector2.one);
+
+        /// Clothing OBJs: no imported materials, keep our normals.
+        static void ImportClothes()
+        {
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { Root + "/Models" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!(AssetImporter.GetAtPath(path) is ModelImporter mi)) continue;
+                if (mi.materialImportMode == ModelImporterMaterialImportMode.None && mi.importNormals == ModelImporterNormals.Import) continue;
+                mi.materialImportMode = ModelImporterMaterialImportMode.None;
+                mi.importNormals = ModelImporterNormals.Import;
+                mi.globalScale = 1f;
+                mi.SaveAndReimport();
+            }
         }
 
         static Interactable Interact(Transform root, string verb, bool counts, float pad, params string[] lines)
